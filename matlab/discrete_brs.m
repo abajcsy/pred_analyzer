@@ -1,10 +1,14 @@
+clc
+clf
+clear all
+
 %% This is a simple test file for running the fast marching method (FMM)
 % for computing the signed distance to an arbitrarily-shaped set.
 
 % Create simple 2D grid. 
 grid_low = [-2,0];
 grid_up = [2,1];
-N = [9, 9];
+N = [10, 10];
 grid = createGrid(grid_low, grid_up, N);
 
 %% Goal locations (unknown).
@@ -15,7 +19,7 @@ true_goal = g1;
 
 %% Other
 dt = 0.1;
-timesteps = 7;
+timesteps = 5;
 
 %% Set of controls.
 ctrls = [-1,1]; % -1 == LEFT, 1 == RIGHT.
@@ -28,10 +32,14 @@ target_set = ones(size(grid.xs{1}));
 %target_set(:,7:9) = -1; 
 
 % Option 2: this target set representation doesn't include boundary of grid.
-target_set(2:8,8) = -1; 
+target_set(2:19,17:19) = -1; 
 
 % Compute signed distance, i.e. l(x), for this target set.
 value_funcs(:,:,1) = compute_fmm_map(grid, target_set);
+
+% belief_update(1, -1, 0.2, goals, dt)
+% pugiveng(1, -1, goals(1), goals, dt)
+% pugiveng(1, -1, goals(2), goals, dt)
 
 % Grid values for each axis.
 x_roundTargets = linspace(grid_low(1),grid_up(1),N(1));
@@ -50,8 +58,8 @@ b_roundTargets = linspace(grid_low(2),grid_up(2),N(2));
 
 % Find possible indices that controls causes states to move to.
 ind_possible = cell(2);
-ind_possible{1} = ind_next(ctrls(1),grid.xs,goals,dt,x_roundTargets,b_roundTargets, grid_low, grid_up, N);
-ind_possible{2} = ind_next(ctrls(2),grid.xs,goals,dt,x_roundTargets,b_roundTargets, grid_low, grid_up, N);
+ind_possible{1} = ind_next(ctrls(1),grid.xs,goals,ctrls,dt,x_roundTargets,b_roundTargets, grid_low, grid_up, N);
+ind_possible{2} = ind_next(ctrls(2),grid.xs,goals,ctrls,dt,x_roundTargets,b_roundTargets, grid_low, grid_up, N);
 
 for i=1:timesteps
     value_func_next = value_funcs(:,:,i);
@@ -65,8 +73,8 @@ end
 
 for i=1:timesteps+1
     % Plot signed distance function, l(x). 
-%     h = subplot(1,timesteps+1,i);
-    figure;
+    h = subplot(1,timesteps+1,i);
+%     figure;
     v = (value_funcs(:,:,i) > 0);
     surf(grid.xs{1}, grid.xs{2}, double(v));
     zlabel('$l(z)$', 'Interpreter', 'Latex');
@@ -79,8 +87,8 @@ function A_select = select_by_ind(A, ind)
     A_select = zeros(size(A));
     for i=1:m
         for j=1:n
-            i_select = ind{1}(i,j);
-            j_select = ind{2}(i,j);
+            i_select = int32(ind{1}(i,j));
+            j_select = int32(ind{2}(i,j));
             A_select(i,j) = A(i_select,j_select);
         end
     end
@@ -91,11 +99,11 @@ function index = x_to_index(x, step, min)
     index = (x ./ step) + 1;
 end
 
-function ind = ind_next(u, xs, goals, dt, x_roundTargets, b_roundTargets, grid_low, grid_up, N)
+function ind = ind_next(u, xs, goals, ctrls, dt, x_roundTargets, b_roundTargets, grid_low, grid_up, N)
     x = xs{1} + dt*u;
     b = xs{2};
     % Double check belief_update function is correctly implemented.
-    b = belief_update(u, x, b, goals, dt);
+    b = belief_update(u, xs{1}, b, goals, ctrls, dt);
     
     % Double check what interp1 does.
     % Map states to grid values
@@ -108,15 +116,17 @@ function ind = ind_next(u, xs, goals, dt, x_roundTargets, b_roundTargets, grid_l
     ind{2} = x_to_index(b, (grid_up(2)-grid_low(2))/(N(2)-1), grid_low(2));
 end
 
-function bnext = belief_update(u, x, b, goals, dt)
-    b0 = pugiveng(u, x, goals(1), goals, dt) .* b;
-    b1 = pugiveng(u, x, goals(2), goals, dt) .* (1-b);
+function bnext = belief_update(u, x, b, goals, ctrls, dt)
+    b0 = pugiveng(u, x, goals(1), ctrls, dt) .* b;
+    b1 = pugiveng(u, x, goals(2), ctrls, dt) .* (1-b);
     normalizer = b0 + b1;
     bnext = b0 ./ normalizer;
 end
 
-function pu = pugiveng(u, x, g, goals, dt)
-    numerator = exp(-abs(x - g));
-    denominator = exp(-abs(x - goals(1))) + exp(-abs(x - goals(2)));
+function pu = pugiveng(u, x, g, ctrls, dt)
+    x_next_1 = x + ctrls(1)*dt;
+    x_next_2 = x + ctrls(2)*dt;
+    numerator = exp(-abs(x + dt*u - g));
+    denominator = exp(-abs(x_next_1 - g)) + exp(-abs(x_next_2 - g));
     pu = numerator ./ denominator;
 end
