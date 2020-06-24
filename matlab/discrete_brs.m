@@ -35,7 +35,7 @@ target_set = ones(size(grid.xs{1}));
 
 % Option 2: this target set representation doesn't include boundary of grid.
 x_target_ind = [2,N(1)-1];
-b_target_ind = [17,N(2)-1];
+b_target_ind = [17,N(2)];
 target_set(x_target_ind(1):x_target_ind(2),b_target_ind(1):b_target_ind(2)) = -1;
 
 % Values corresponding to target set
@@ -75,65 +75,85 @@ for i=1:timesteps
     value_funcs(:,:,i+1) = value_func_curr;
 end
 
-% % Plot valued functions
-% for i=1:timesteps+1
-%     % Plot signed distance function, l(x). 
-%     h = subplot(1,timesteps+1,i);
-% %     figure;
-%     v = (value_funcs(:,:,i) > 0);
-%     surf(grid.xs{1}, grid.xs{2}, double(v));
-%     zlabel('$l(z)$', 'Interpreter', 'Latex');
-%     xlabel('$x$', 'Interpreter', 'Latex');
-%     ylabel('$b(\theta)$', 'Interpreter', 'Latex');
-% end
-
-% Check states in BRS (negative valued states of final value function) can reach belief set in T timesteps
-[row, col] = find(value_funcs(:,:,timesteps+1)<0);
-valid = [];
-for i=1:length(row)
-    ind = [row(i), col(i)];
-    state = [x_roundTargets(ind(1)), b_roundTargets(ind(2))];
-    ended = 1;
-    for t=1:timesteps+1
-        if (state(1) <= x_target(2)) && (state(1) >= x_target(1)) && (state(2) <= b_target(2)) && (state(2) >= b_target(1))
-            ended = 0;
-        end
-        x_next = interp1(x_roundTargets,x_roundTargets,state(1) - 1*dt,'nearest','extrap');
-        b_next = interp1(b_roundTargets,b_roundTargets,belief_update(-1, state(1), state(2), goals, ctrls, dt),'nearest','extrap');
-        state = [x_next, b_next];
-    end
-    valid = [ended valid];
+% Plot valued functions
+for i=1:timesteps+1
+    % Plot signed distance function, l(x). 
+    h = subplot(1,timesteps+1,i);
+%     figure;
+    v = (value_funcs(:,:,i) > 0);
+    surf(grid.xs{1}, grid.xs{2}, double(v));
+    zlabel('$l(z)$', 'Interpreter', 'Latex');
+    xlabel('$x$', 'Interpreter', 'Latex');
+    ylabel('$b(\theta)$', 'Interpreter', 'Latex');
 end
 
-sum(valid)
+% % Check states in BRS (negative valued states of final value function) can reach belief set in T timesteps
+% [row, col] = find(value_funcs(:,:,timesteps+1)<0);
+% valid = [];
+% for i=1:length(row)
+%     ind = [row(i), col(i)];
+%     state = [x_roundTargets(ind(1)), b_roundTargets(ind(2))];
+%     ended = 1;
+%     for t=1:timesteps+1
+%         if (state(1) <= x_target(2)) && (state(1) >= x_target(1)) && (state(2) <= b_target(2)) && (state(2) >= b_target(1))
+%             ended = 0;
+%         end
+%         x_next = interp1(x_roundTargets,x_roundTargets,state(1) - 1*dt,'nearest','extrap');
+%         b_next = interp1(b_roundTargets,b_roundTargets,belief_update(-1, state(1), state(2), goals, ctrls, dt),'nearest','extrap');
+%         state = [x_next, b_next];
+%     end
+%     valid = [ended valid];
+% end
+% 
+% sum(valid)
 
-% Find optimal control sequence
-state = [0, 0.5];
-ctrl_seq = [];
+%% Find optimal control sequence.
+state = [0, 0.1];
+% Map state to closest point on grid.
+[states, ctrl_seq, reached] = find_opt_control(state, x_roundTargets,b_roundTargets, value_funcs, x_target, b_target, timesteps, ctrls, goals, dt, grid_low, grid_up, N)
 
-for t=1:timesteps
-    possible_state = cell(2);
-    possible_ind = cell(2);
-    for i=1:length(ctrls)
-        u = ctrls(i);
-        x_new = state(1) + u*dt;
-        b_new = belief_update(u, state(1), state(2), goals, ctrls, dt);
-        state_new = [x_new, b_new];
-        state_new = state_to_grid(state_new, x_roundTargets, b_roundTargets);
-        possible_state{i} = state_new;
-        possible_ind{i} = state_to_index(state_new,grid_low,grid_up,N);
-    end
-    ctrl_index = 2;
-    if value_funcs(possible_ind{1}(1),possible_ind{1}(2), timesteps + 1 - t) < value_funcs(possible_ind{2}(1),possible_ind{2}(2), timesteps + 1 - t)
-        ctrl_index = 1;
-    end
-    ctrl_seq = [ctrls(ctrl_index) ctrl_seq];
-    state = possible_state{ctrl_index};
-    if (state(1) <= x_target(2)) && (state(1) >= x_target(1)) && (state(2) <= b_target(2)) && (state(2) >= b_target(1))
-        disp('Reached target set')
-        state
-        ctrl_seq
-        break
+%% Check that reachable set is valid.
+[row, col] = find(value_funcs(:,:,timesteps+1)<0);
+reached_sum = length(row);
+for i=1:length(row)
+    state = [x_roundTargets(row(i)), b_roundTargets(col(i))];
+    [states, ctrl_seq, reached] = find_opt_control(state, x_roundTargets,b_roundTargets, value_funcs, x_target, b_target, timesteps, ctrls, goals, dt, grid_low, grid_up, N);
+    reached_sum = reached_sum - reached;
+end
+
+reached_sum
+
+%% Helper functions
+function [states, ctrl_seq, reached] = find_opt_control(state, x_roundTargets,b_roundTargets, value_funcs, x_target, b_target, timesteps, ctrls, goals, dt, grid_low, grid_up, N)
+    state = state_to_grid(state,x_roundTargets,b_roundTargets);
+    ctrl_seq = [];
+    states = cell(timesteps);
+    states{1} = state;
+    reached = 0;
+
+    for t=1:timesteps
+        possible_state = cell(2);
+        possible_ind = cell(2);
+        for i=1:length(ctrls)
+            u = ctrls(i);
+            x_new = state(1) + u*dt;
+            b_new = belief_update(u, state(1), state(2), goals, ctrls, dt);
+            state_new = [x_new, b_new];
+            state_new = state_to_grid(state_new, x_roundTargets, b_roundTargets);
+            possible_state{i} = state_new;
+            possible_ind{i} = state_to_index(state_new,grid_low,grid_up,N);
+        end
+        ctrl_index = 2;
+        if value_funcs(possible_ind{1}(1),possible_ind{1}(2), timesteps + 1 - t) <= value_funcs(possible_ind{2}(1),possible_ind{2}(2), timesteps + 1 - t)
+            ctrl_index = 1;
+        end
+        ctrl_seq = [ctrl_seq ctrls(ctrl_index)];
+        state = possible_state{ctrl_index};
+        states{t+1} = state;
+        if (state(1) <= x_target(2)) && (state(1) >= x_target(1)) && (state(2) <= b_target(2)) && (state(2) >= b_target(1))
+            reached = 1;
+            break
+        end
     end
 end
 
