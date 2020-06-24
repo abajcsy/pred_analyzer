@@ -1,7 +1,6 @@
 clear
 
-%% This is a simple test file for running the fast marching method (FMM)
-% for computing the signed distance to an arbitrarily-shaped set.
+%% This is a simple test file for generating BRSs using discrete HJI
 
 % Create simple 2D grid. 
 grid_low = [-4,0];
