@@ -8,7 +8,7 @@ gnums = [20,20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "min"; % min or max
-num_timesteps = 5;
+num_timesteps = 20;
 plot = false;
 
 % Joint Dynamics Setup
@@ -24,7 +24,7 @@ dyn_sys = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
 x_target_ind = [2,gnums(1)-1];
 b_target_ind = [17,gnums(2)];
 initial_value_fun = construct_value_fun(x_target_ind, b_target_ind, gmin, gmax, gnums);
-
+tic
 % Store initial value function
 value_funs = cell(1, num_timesteps);
 value_funs{end} = initial_value_fun;
@@ -46,11 +46,20 @@ while tidx > 0
         next_state = dyn_sys.dynamics(current_state, u_i);
         possible_value_funs(:,:,i) = grid.GetDataAtReal(next_state);
     end
-    value_fun_min = min(possible_value_funs, [], 3);
-    value_funs{tidx} = value_fun_min;
+    
+    % Minimize/Maximize over possible future value functions.
+    if strcmp(uMode, "min")
+        value_fun = min(possible_value_funs, [], 3);
+    else
+        value_fun = max(possible_value_funs, [], 3);
+    end
+    
+    value_funs{tidx} = value_fun;
     
     tidx = tidx - 1;
 end
+
+toc
 
 % Plot valued functions
 if plot
@@ -70,7 +79,7 @@ end
 initial_state = cell(1,2);
 initial_state{1} = 0;
 initial_state{2} = 0.5;
-[ctrl_seq, reached] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode)
+% [ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode)
 
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices
@@ -81,9 +90,11 @@ function value_fun = construct_value_fun(x_ind, b_ind, gmin, gmax, gnums)
     value_fun = compute_fmm_map(grid, target_set);
 end
 
-function [ctrl_seq, reached] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode)
+function [ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode)
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
+    
+    % Find latest time BRS includes initial state.
     initial_idx = grid.RealtoIdx(initial_state);
     initial_idx = initial_idx{1};
     start_t = 0;
@@ -91,21 +102,27 @@ function [ctrl_seq, reached] = find_opt_control(initial_state,value_funs, grid, 
     while i > 0
         if value_funs{i}(initial_idx) <= 0
             start_t = i;
+            break
         end
         i = i - 1;
     end
+    
     if start_t == num_timesteps
         reached = true;
+        time = 0;
     elseif start_t == 0
         reached = false;
+        time = inf;
     else
         reached = true;
         ctrl_seq = cell(1,num_timesteps-start_t);
         state = grid.RealToCoords(initial_state);
         j = 1;
-        for t=start_t:num_timesteps
+        time = 0;
+        for t=start_t:num_timesteps-1
+%             state
             vals = [];
-            value_fun_next = value_funs{t};
+            value_fun_next = value_funs{t+1};
             for i=1:numel(controls)
                 u_i = controls(i);
                 idx = grid.RealtoIdx(dyn_sys.dynamics(state,u_i));
@@ -120,12 +137,8 @@ function [ctrl_seq, reached] = find_opt_control(initial_state,value_funs, grid, 
             ctrl = controls(ctrl_ind);
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
-            
-            temp_idx = grid.CoordsToIdx(state);
-            temp_idx = temp_idx{1};
-            if value_funs{end}(temp_idx) <= 0
-                break
-            end
+            time = time + dyn_sys.dt;
+
             j = j + 1;
         end
     end

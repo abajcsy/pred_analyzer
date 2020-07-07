@@ -7,14 +7,16 @@ gnums = [6, 3, 9];
 grid = Grid(gmin, gmax, gnums);
 
 %% Human belief setup
-dt = 1.0;
+dt = 0.8;
 thetas = [-2, 2];
 num_ctrls = 2;
 controls = [-1, 1];
 
-z0 = [0, 0.5];
+z0 = cell(1,2);
+z0{1} = -2.3158;
+z0{2} = 1;
 human0 = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
 
 %% Test dynamics
-z1 = human0.dynamics(z0, -1);
-all([z1(1) == -1])
+z1_1 = human0.dynamics(z0, -1)
+z1_2 = human0.dynamics(z0, 1)

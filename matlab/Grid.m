@@ -70,7 +70,7 @@ classdef Grid < handle
                 index{dim} = int32(((coords{dim} - obj.gmin(dim)) ./ obj.gdisc(dim)) + 1);
             end
             % TODO: Turn idx into containing linear index. Loop through all
-            % elements?
+            % elements? TRY parfor?
             idx = cell(size(coords{1}));
             for ind=1:numel(idx)
                 sub = [];
@@ -92,7 +92,7 @@ classdef Grid < handle
             end
         end
         
-        function idx = RealtoIdx(obj,real)
+        function idx = RealToIdx(obj,real)
             % Return data at real coordinates.
             idx = obj.CoordsToIdx(obj.RealToCoords(real));
         end
