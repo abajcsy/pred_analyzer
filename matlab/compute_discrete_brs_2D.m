@@ -32,6 +32,7 @@ extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 % ---- Plotting info --- %
 
+% Initial state and dynamical system setup
 initial_state = cell(1,3);
 initial_state{1} = 0;
 initial_state{2} = 0;
@@ -63,7 +64,7 @@ while tidx > 0
     grid.SetData(value_funs{tidx + 1});
     
     % Compute possible next state after one timestep and find possible
-    % value functions
+    % value functions for each control
     current_state = grid.get_grid();
     possible_value_funs = zeros([gnums, numel(controls)]);
     likelyMasks = dyn_sys.getLikelyMasks(current_state);
@@ -86,31 +87,22 @@ while tidx > 0
     tidx = tidx - 1;
 end
 
-% TODO: How to plot in 3d
-% Plot valued functions
+% Plot value functions
 if plot
-%     g = grid.get_grid();
     figure;
     g = createGrid(gmin, gmax, gnums);
     row_len = 5;
     for i=1:num_timesteps
-        % Plot signed distance function, l(x). 
+        % Plot value function at time i.
         h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
         visSetIm(g,value_funs{i});
         title(['t=',num2str(i)])
-    %     figure;
-%         v = min((value_funs{i} > 0), [], 3);
-%         x = min(g{1}, [], 3);
-%         y = min(g{2}, [], 3);
-%         surf(x, y, double(v));
-%         zlabel('$l(z)$', 'Interpreter', 'Latex');
-%         xlabel('$x$', 'Interpreter', 'Latex');
-%         ylabel('$b(\theta)$', 'Interpreter', 'Latex');
     end
 end
 
 toc
 
+% Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode);
 if reached & plot
     figure;
