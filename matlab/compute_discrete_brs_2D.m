@@ -9,21 +9,21 @@ gnums = [20,20,20];
 % Hamilton-Jacobi Problem Setup
 uMode = "min"; % min or max
 num_timesteps = 5;
-plot = false;
+plot = true;
 tol = 0.05;
 compType = 'conf';
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
 % Joint Dynamics Setup
-dt = 0.1;
+dt = 0.5;
 thetas = {[-1, 2], [1, 2]};
 trueTheta = 1;
 centerPgoal1 = 0.95;
-num_ctrls = 10;
+num_ctrls = 20;
 controls = linspace(0,2*pi,num_ctrls);
 v = 1;
-uThresh = 0.1;
+uThresh = 0.05;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -52,7 +52,7 @@ tic
 
 % Store initial value function
 value_funs = cell(1, num_timesteps);
-value_funs{end} = initial_value_fun;
+value_funs{num_timesteps} = initial_value_fun;
 
 % Compute BRS backwards in time
 tidx = num_timesteps - 1;
@@ -89,32 +89,37 @@ end
 % TODO: How to plot in 3d
 % Plot valued functions
 if plot
-    g = grid.get_grid();
+%     g = grid.get_grid();
+    figure;
+    g = createGrid(gmin, gmax, gnums);
     row_len = 5;
     for i=1:num_timesteps
         % Plot signed distance function, l(x). 
         h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
+        visSetIm(g,value_funs{i});
+        title(['t=',num2str(i)])
     %     figure;
-        v = min((value_funs{i} > 0), [], 3);
-        x = min(g{1}, [], 3);
-        y = min(g{2}, [], 3);
-        surf(x, y, double(v));
-        zlabel('$l(z)$', 'Interpreter', 'Latex');
-        xlabel('$x$', 'Interpreter', 'Latex');
-        ylabel('$b(\theta)$', 'Interpreter', 'Latex');
+%         v = min((value_funs{i} > 0), [], 3);
+%         x = min(g{1}, [], 3);
+%         y = min(g{2}, [], 3);
+%         surf(x, y, double(v));
+%         zlabel('$l(z)$', 'Interpreter', 'Latex');
+%         xlabel('$x$', 'Interpreter', 'Latex');
+%         ylabel('$b(\theta)$', 'Interpreter', 'Latex');
     end
 end
 
 toc
 
-% [traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode);
-% if reached & plot
-%     plotTraj(traj, traj_tau, thetas, trueTheta, ...
-%     gmin, gmax, goalSetRad, extraPltArgs);
-% end
+[traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode);
+if reached & plot
+    figure;
+    plotTraj(traj, traj_tau, thetas, trueTheta, ...
+    gmin, gmax, goalSetRad, extraPltArgs);
+end
 
-% reached
-% ctrl_seq
+reached
+ctrl_seq
 
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices
