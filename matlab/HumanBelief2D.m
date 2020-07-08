@@ -6,16 +6,18 @@ classdef HumanBelief2D < handle
         thetas % set of model parameters
         num_ctrls % number of discrete controls
         controls % discretized controls
-        z0 % initial joint state (x, b)
+        z0 % initial joint state z = (x, y, b(theta_1))
         v % constant speed of human
         uThresh % threshold probability for sufficiently likely controls
+        trueThetaIdx % true human intent parameter. 
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
     end
     
     methods
-        function obj = HumanBelief2D(dt, thetas, num_ctrls, controls, z0, v, uThresh)
+        function obj = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
+                z0, v, uThresh, trueThetaIdx)
             % Construct an instance of Grid.
             obj.dt = dt;
             obj.thetas = thetas;
@@ -24,6 +26,7 @@ classdef HumanBelief2D < handle
             obj.z0 = z0;
             obj.v = v;
             obj.uThresh = uThresh;
+            obj.trueThetaIdx = trueThetaIdx;
         end
         
         function znext = dynamics(obj,z,u)
@@ -47,11 +50,17 @@ classdef HumanBelief2D < handle
             likelyMasks = containers.Map;
             for i=1:obj.num_ctrls
                 u_i = obj.controls(i);
-                b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
-                b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
-                normalizer = b0 + b1;
                 
-                mask = (normalizer >= obj.uThresh);
+%                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
+%                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
+%                 normalizer = b0 + b1;
+%                 
+%                 mask = (normalizer >= obj.uThresh);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) >= delta}
+                putheta = obj.pugivenxtheta(u_i, z, obj.thetas{obj.trueThetaIdx});
+                mask = (putheta >= obj.uThresh);
                 mask = mask * 1;
                 mask(mask == 0) = nan;
                 likelyMasks(num2str(u_i)) = mask;

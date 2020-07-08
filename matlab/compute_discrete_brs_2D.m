@@ -1,36 +1,40 @@
-clear
+clear all
+clf
+close all
+
 %% File to compute reachable sets and optimal control via discrete HJ
 
 % Grid setup
-gmin = [-4,-4,0];
-gmax = [4,4,1];
-gnums = [20,20,20];
+gmin = [-4, -4, 0];
+gmax = [4, 4, 1];
+gnums = [25, 25, 20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "min"; % min or max
-num_timesteps = 5;
-plot = true;
+num_timesteps = 8;
 tol = 0.05;
 compType = 'conf';
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
-% Joint Dynamics Setup
+% Joint Dynamics Setup.
 dt = 0.5;
 thetas = {[-1, 2], [1, 2]};
-trueTheta = 1;
+trueThetaIdx = 1;
 centerPgoal1 = 0.95;
 num_ctrls = 20;
 controls = linspace(0,2*pi,num_ctrls);
 v = 1;
-uThresh = 0.05;
+uThresh = 0.0;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
 extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
-row_len = 2; % number of subplots on each row of overall plot
+row_len = 2;        % Number of subplots on each row of overall plot
+plot = true;        % Visualize the BRS?
+plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplots.
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
@@ -38,7 +42,8 @@ initial_state = cell(1,3);
 initial_state{1} = 0;
 initial_state{2} = 0;
 initial_state{3} = 0.5;
-dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, initial_state, v, uThresh);
+dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
+            initial_state, v, uThresh, trueThetaIdx);
 
 % Target Set Setup
 xyoffset = 0.1;
@@ -50,30 +55,35 @@ widths = [(gmax(1) - gmin(1)) - xyoffset; ...
 initial_value_fun = construct_value_fun(center, widths, gmin, gmax, gnums);
 goalSetRad = 0.1; % not relevant for this high conf goal set.
 
-tic
+% (Benchmarking) Timer for the overall computation.
+overallStart = tic;
 
-% Store initial value function
+% Store initial value function.
 value_funs = cell(1, num_timesteps);
 value_funs{num_timesteps} = initial_value_fun;
 
-% Compute BRS backwards in time
+% Compute BRS backwards in time.
 tidx = num_timesteps - 1;
 
 while tidx > 0
+    fprintf("Computing value function for t=%f...\n", tidx*dt);
+    %(Benchmarking) Timer for single computation.
+    singleCompStart = tic;
+    
     % Create grid and set data to value function at t+1
-    grid = Grid(gmin, gmax, gnums);
-    grid.SetData(value_funs{tidx + 1});
+    compute_grid = Grid(gmin, gmax, gnums);
+    compute_grid.SetData(value_funs{tidx + 1});
     
     % Compute possible next state after one timestep and find possible
     % value functions for each control
-    current_state = grid.get_grid();
+    current_state = compute_grid.get_grid();
     possible_value_funs = zeros([gnums, numel(controls)]);
     likelyMasks = dyn_sys.getLikelyMasks(current_state);
     for i=1:numel(controls)
         u_i = controls(i);
         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u_i));
-        possible_value_funs(:,:,:,i) = grid.GetDataAtReal(next_state) .* likelyMask;
+        possible_value_funs(:,:,:,i) = compute_grid.GetDataAtReal(next_state) .* likelyMask;
     end
     
     % Minimize/Maximize over possible future value functions.
@@ -84,13 +94,54 @@ while tidx > 0
     end
     
     value_funs{tidx} = value_fun;
-    
     tidx = tidx - 1;
+    
+    singleCompEnd = toc(singleCompStart); 
+    fprintf("    [One backup computation time: %f s]\n", singleCompEnd);
 end
 
+% End timing the overall computation;
+toc(overallStart);
+
 % Plot value functions
-if plot
-    figure;
+if plot && plotVideo
+    figure(1);
+    g = createGrid(gmin, gmax, gnums);
+    viewAxis = [gmin(1) gmax(1) ...
+               gmin(2) gmax(2) ...
+               -0.1 1.1];
+    for i=num_timesteps:-1:1
+        hold on
+        % Plot value function backwards in time.
+        axis(viewAxis)
+        axis square
+        level = 1;
+        extraArgs.sliceDim = 0;
+        h = visSetIm(g, value_funs{i}, 'r', level, extraArgs);
+        t = title(['t=-',num2str((num_timesteps-i)*dt),' s'], 'Interpreter', 'Latex');
+        t.FontSize = 18;
+        view(-43, 13);
+        
+        % Visualize computation grid through the 'grid' feature in
+        % plotting.
+        set(gca,'xtick',linspace(gmin(1),gmax(1),gnums(1)));
+        set(gca,'ytick',linspace(gmin(2),gmax(2),gnums(2)));
+        set(gca,'ztick',linspace(gmin(3),gmax(3),gnums(3)));
+
+        grid on;
+        
+        % Plot initial state.
+        s = scatter3(initial_state{1}, initial_state{2}, initial_state{3});
+        s.SizeData = 40;
+        s.MarkerFaceColor = 'k';
+        s.MarkerEdgeColor = 'k';
+        pause(0.5);
+        if i ~= 1
+            delete(h);
+        end
+    end
+elseif plot && ~plotVideo
+    figure(1);
     g = createGrid(gmin, gmax, gnums);
     viewAxis = [gmin(1) gmax(1) ...
                gmin(2) gmax(2) ...
@@ -101,21 +152,34 @@ if plot
         axis(viewAxis)
         axis square
         visSetIm(g,value_funs{i});
-        title(['t=',num2str(i)])
+        t = title(['t=',num2str((i-1)*dt),' s'], 'Interpreter', 'Latex');
+        t.FontSize = 18;
+        view(-43, 13);
+        grid on;
+        
+        % Plot initial state.
+        hold on
+        s = scatter3(initial_state{1}, initial_state{2}, initial_state{3});
+        s.SizeData = 40;
+        s.MarkerFaceColor = 'k';
+        s.MarkerEdgeColor = 'k';
     end
 end
 
-toc
-
 % Find and plot optimal control sequence (if reachable by computed BRS)
-[traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode);
+[traj, traj_tau, ctrl_seq, reached, time] = ...
+    find_opt_control(initial_state,value_funs, compute_grid, ...
+        dyn_sys, controls, uMode, dt);
+    
 if reached & plot
-    figure;
-    plotTraj(traj, traj_tau, thetas, trueTheta, ...
-    gmin, gmax, goalSetRad, extraPltArgs);
+    figure(2)
+    plotTraj(traj, traj_tau, thetas, trueThetaIdx, ...
+        gmin, gmax, gnums, goalSetRad, extraPltArgs);
 end
 
-reached
+if ~reached
+    fprintf("BRS never included initial state! Cannot find optimal control.");
+end
 ctrl_seq
 
 %% Helper functions
@@ -132,7 +196,9 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
     value_fun = shapeRectangleByCenter(grid, center, widths);
 end
 
-function [traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_state,value_funs, grid, dyn_sys, controls, uMode)
+function [traj, traj_tau, ctrl_seq, reached, time] = ...
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt)
+
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
     
@@ -144,8 +210,14 @@ function [traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_st
     initial_idx = initial_idx{1};
     start_t = 0;
     i = num_timesteps;
+    
+    zero_tol = -0.03;
     while i > 0
-        if value_funs{i}(initial_idx) <= 0
+        fprintf('Value of initial state at t=-%f: %f ...\n', i*dt, ...
+                value_funs{i}(initial_idx));
+        if value_funs{i}(initial_idx) <= zero_tol
+            fprintf('Value of initial state at earliest appearance in BRS: %f\n', ...
+                value_funs{i}(initial_idx));
             start_t = i;
             break
         end
@@ -195,8 +267,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = find_opt_control(initial_st
 end
 
 function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
-    grid_min, grid_max, goalSetRad, extraPltArgs)
-    figure(2);
+    grid_min, grid_max, grid_nums, goalSetRad, extraPltArgs)
     hold on
     
     % Goal colors.
@@ -308,6 +379,10 @@ function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
     ylabel('y');
     zlabel('P(g = g1)');
     set(gcf,'Position',[100 100 500 500]);
+    
+    set(gca,'xtick',linspace(grid_min(1),grid_max(1),grid_nums(1)));
+    set(gca,'ytick',linspace(grid_min(2),grid_max(2),grid_nums(2)));
+    set(gca,'ztick',linspace(grid_min(3),grid_max(3),grid_nums(3)));
     
     % Saving functionality.
     if extraPltArgs.saveFigs
