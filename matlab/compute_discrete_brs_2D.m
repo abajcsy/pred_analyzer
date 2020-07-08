@@ -30,6 +30,7 @@ extraPltArgs.compType = compType;
 extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
+row_len = 2; % number of subplots on each row of overall plot
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
@@ -91,10 +92,14 @@ end
 if plot
     figure;
     g = createGrid(gmin, gmax, gnums);
-    row_len = 5;
+    viewAxis = [gmin(1) gmax(1) ...
+               gmin(2) gmax(2) ...
+               -0.1 1.1];
     for i=1:num_timesteps
         % Plot value function at time i.
         h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
+        axis(viewAxis)
+        axis square
         visSetIm(g,value_funs{i});
         title(['t=',num2str(i)])
     end
