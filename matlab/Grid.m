@@ -25,7 +25,7 @@ classdef Grid < handle
             
             [~, dims] = size(obj.gnums);
             grid_els = cell(1, dims);
-            for dim=1:dims
+            parfor dim=1:dims
                 grid_els{dim} = obj.gmin(dim):obj.gdisc(dim):obj.gmax(dim);
             end
             g = cell(1,numel(grid_els));
@@ -33,26 +33,13 @@ classdef Grid < handle
             obj.g = g;
         end
         
-%         function coords = getCoords(obj)
-%             % https://au.mathworks.com/matlabcentral/answers/98191-how-can-i-obtain-all-possible-combinations-of-given-vectors-in-matlab#answer_252633
-%             [~, dims] = size(obj.gnums);
-%             elements = cell(1, dims);
-%             for dim=1:dims
-%                 elements{dim} = obj.gmin(dim):obj.gdisc(dim):obj.gmax(dim);
-%             end
-%             combinations = cell(1, numel(elements));
-%             [combinations{:}] = ndgrid(elements{:});
-%             combinations = cellfun(@(x) x(:), combinations,'uniformoutput',false);
-%             coords = [combinations{:}];
-%         end
-        
         % TODO: Is the Euclidean distance metric better or the same as
         % Manhattan on a grid?
         function coord = RealToCoords(obj,real)
             % Return coordinates from real value.
             [~, dims] = size(obj.gnums);
             coord = cell(1, dims);
-            for dim=1:dims
+            parfor dim=1:dims
                 gridding = obj.gmin(dim):obj.gdisc(dim):obj.gmax(dim);
                 coord{dim} = interp1(gridding,gridding,real{dim},'nearest','extrap');
             end
@@ -66,13 +53,13 @@ classdef Grid < handle
             % Return linear index from grid coordinates
             [~, dims] = size(obj.gnums);
             index = cell(1, dims);
-            for dim=1:dims
+            parfor dim=1:dims
                 index{dim} = int32(((coords{dim} - obj.gmin(dim)) ./ obj.gdisc(dim)) + 1);
             end
             % TODO: Turn idx into containing linear index. Loop through all
             % elements? TRY parfor?
             idx = cell(size(coords{1}));
-            for ind=1:numel(idx)
+            parfor ind=1:numel(idx)
                 sub = [];
                 for dim=1:dims
                     sub = [sub index{dim}(ind)];
@@ -87,7 +74,7 @@ classdef Grid < handle
             % Return data at real coordinates.
             idx = obj.CoordsToIdx(obj.RealToCoords(real));
             data = zeros(size(real{1}));
-            for data_ind=1:numel(real{1})
+            parfor data_ind=1:numel(real{1})
                 data(data_ind) = obj.data(idx{data_ind});
             end
         end
