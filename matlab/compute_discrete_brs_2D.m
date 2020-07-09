@@ -7,24 +7,24 @@ close all
 % Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [25, 25, 20];
+gnums = [35, 35, 20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "min"; % min or max
-num_timesteps = 8;
-tol = 0.05;
+num_timesteps = 10;
+tol = 0.1;
 compType = 'conf';
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
 % Joint Dynamics Setup.
-dt = 0.5;
-thetas = {[-1, 2], [1, 2]};
+dt = 0.4;
+thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
-centerPgoal1 = 0.95;
-num_ctrls = 20;
+centerPgoal1 = 0.9;
+num_ctrls = 30;
 controls = linspace(0,2*pi,num_ctrls);
-v = 1;
+v = 0.6;
 uThresh = 0.0;
 
 % ---- Plotting info --- %
@@ -39,7 +39,7 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 
 % Initial state and dynamical system setup
 initial_state = cell(1,3);
-initial_state{1} = 0;
+initial_state{1} = 1;
 initial_state{2} = 0;
 initial_state{3} = 0.5;
 dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
@@ -47,11 +47,10 @@ dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
 
 % Target Set Setup
 xyoffset = 0.1;
-poffset = 0.01;
 center = [0; 0; centerPgoal1];
 widths = [(gmax(1) - gmin(1)) - xyoffset; ...
           (gmax(2) - gmin(2)) - xyoffset; 
-          tol - poffset];
+          tol];
 initial_value_fun = construct_value_fun(center, widths, gmin, gmax, gnums);
 goalSetRad = 0.1; % not relevant for this high conf goal set.
 
@@ -98,6 +97,14 @@ while tidx > 0
     
     singleCompEnd = toc(singleCompStart); 
     fprintf("    [One backup computation time: %f s]\n", singleCompEnd);
+    
+%     % Index of initial state.
+%     initial_idx = compute_grid.RealToIdx(initial_state);
+%     initial_idx = initial_idx{1};
+%     if value_fun(initial_idx) <= 0.0
+%         fprintf("    Found earliest BRS containing z0!\n");
+%         break;
+%     end
 end
 
 % End timing the overall computation;
@@ -115,7 +122,7 @@ if plot && plotVideo
         % Plot value function backwards in time.
         axis(viewAxis)
         axis square
-        level = 1;
+        level = 0;
         extraArgs.sliceDim = 0;
         h = visSetIm(g, value_funs{i}, 'r', level, extraArgs);
         t = title(['t=-',num2str((num_timesteps-i)*dt),' s'], 'Interpreter', 'Latex');

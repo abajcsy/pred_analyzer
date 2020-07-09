@@ -16,8 +16,8 @@ tol = 0.1;
 % Joint Dynamics Setup
 dt = 0.1;
 thetas = [-3, 3];
-trueThetaIdx = 1;
-centerPgoal1 = 0.95;
+trueThetaIdx = 1; %2; 
+centerPgoal1 = 0.9; %0.1;
 num_ctrls = 2;
 controls = [-1, 1];
 
@@ -29,7 +29,7 @@ extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 
-z0 = [0, 0.5];
+z0 = [0, 0.7];
 dyn_sys = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
 
 % Target Set Setup
@@ -39,7 +39,7 @@ dyn_sys = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
 
 % Target Set Setup
 xoffset = 0.1;
-center = [0; 0.9];
+center = [0; centerPgoal1];
 widths = [(gmax(1) - gmin(1)) - xoffset; 
           tol];
 initial_value_fun = construct_value_fun(center, widths, gmin, gmax, gnums);
@@ -53,8 +53,8 @@ value_funs{end} = initial_value_fun;
 tidx = num_timesteps - 1;
 
 initial_state = cell(1,2);
-initial_state{1} = 0;
-initial_state{2} = 0.5;
+initial_state{1} = z0(1);
+initial_state{2} = z0(2);
 
 while tidx > 0
     % Create grid and set data to value function at t+1
@@ -100,9 +100,12 @@ if plot
         s = surf(g{1}, g{2}, value_funs{i});
         shading interp
         zlabel('$l(z)$', 'Interpreter', 'Latex');
-        xlabel('$x$', 'Interpreter', 'Latex');
-        ylabel('$b(\theta)$', 'Interpreter', 'Latex');
-        title(strcat('V(z,t=-', num2str((num_timesteps-i)*dt), ')'), 'Interpreter', 'Latex');
+        xt = xlabel('$x$', 'Interpreter', 'Latex');
+        yt = ylabel('$b(\theta = -3)$', 'Interpreter', 'Latex');
+        t = title(strcat('V(z,t=-', num2str((num_timesteps-i)*dt), ')'), 'Interpreter', 'Latex');
+        xt.FontSize = 15;
+        yt.FontSize = 15;
+        t.FontSize = 15;
         colorbar
         view(0, 90);
         
@@ -125,8 +128,11 @@ if plot
         is.SizeData = 40;
         is.MarkerFaceColor = 'k';
         is.MarkerEdgeColor = 'k';
+        
+        set(gcf,'color','w'); 
         hold off
         pause(0.5);
+        
         if i ~= 1
             delete(s);
         end
@@ -342,4 +348,5 @@ function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
     
     set(gca,'xtick',linspace(grid_min(1),grid_max(1),4));
     set(gca,'ytick',linspace(grid_min(2),grid_max(2),4));
+    set(gcf,'color','w'); 
 end
