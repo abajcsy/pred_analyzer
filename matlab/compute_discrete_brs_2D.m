@@ -7,10 +7,10 @@ close all
 % Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [35, 35, 20];
+gnums = [10, 10, 10];
 
 % Hamilton-Jacobi Problem Setup
-uMode = "min"; % min or max
+uMode = "max"; % min or max
 num_timesteps = 10;
 tol = 0.1;
 compType = 'conf';
@@ -18,14 +18,14 @@ compType = 'conf';
 %compType = 'conf_and_goal';
 
 % Joint Dynamics Setup.
-dt = 0.4;
+dt = 0.5;
 thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 centerPgoal1 = 0.9;
-num_ctrls = 30;
+num_ctrls = 20;
 controls = linspace(0,2*pi,num_ctrls);
-v = 0.6;
-uThresh = 0.0;
+v = 1;
+uThresh = 0.08;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -38,10 +38,7 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = cell(1,3);
-initial_state{1} = 1;
-initial_state{2} = 0;
-initial_state{3} = 0.5;
+initial_state = {3.5,2,0.5};
 dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
             initial_state, v, uThresh, trueThetaIdx);
 

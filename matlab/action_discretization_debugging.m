@@ -4,7 +4,7 @@ clear all
 % Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [20, 20, 20];
+gnums = [19,19,19];
 
 % Joint Dynamics Setup.
 dt = 0.5;
