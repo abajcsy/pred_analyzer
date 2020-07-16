@@ -10,7 +10,7 @@ gmax = [4, 4, 1];
 gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
-uMode = "min"; % min or max
+uMode = "max"; % min or max
 num_timesteps = 10;
 tol = 0.1;
 compType = 'conf';
@@ -18,14 +18,13 @@ compType = 'conf';
 %compType = 'conf_and_goal';
 
 % Joint Dynamics Setup.
-dt = 0.5;
 thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 centerPgoal1 = 0.9;
-num_ctrls = 20;
-controls = linspace(0,2*pi,num_ctrls);
-v = 1;
-uThresh = 0.00;
+gdisc = (gmax - gmin) ./ (gnums-1);
+controls = generate_controls(gdisc);
+num_ctrls = numel(controls);
+uThresh = 0.16;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -38,9 +37,9 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {-2,0,0.5};
-dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
-            initial_state, v, uThresh, trueThetaIdx);
+initial_state = {0,0,0.5};
+dyn_sys = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
+            initial_state, uThresh, trueThetaIdx);
 
 % Target Set Setup
 xyoffset = 0.1;
@@ -62,7 +61,7 @@ value_funs{num_timesteps} = initial_value_fun;
 tidx = num_timesteps - 1;
 
 while tidx > 0
-    fprintf("Computing value function for t=%f...\n", tidx*dt);
+    fprintf("Computing value function for iteration t=%f...\n", tidx);
     %(Benchmarking) Timer for single computation.
     singleCompStart = tic;
     
@@ -76,7 +75,7 @@ while tidx > 0
     possible_value_funs = zeros([gnums, numel(controls)]);
     likelyMasks = dyn_sys.getLikelyMasks(current_state);
     for i=1:numel(controls)
-        u_i = controls(i);
+        u_i = controls{i};
         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u_i));
         possible_value_funs(:,:,:,i) = compute_grid.GetDataAtReal(next_state) .* likelyMask;
@@ -122,7 +121,7 @@ if plot && plotVideo
         level = 0;
         extraArgs.sliceDim = 0;
         h = visSetIm(g, value_funs{i}, 'r', level, extraArgs);
-        t = title(['t=-',num2str((num_timesteps-i)*dt),' s'], 'Interpreter', 'Latex');
+        t = title(['t=-',num2str((num_timesteps-i)),' s'], 'Interpreter', 'Latex');
         t.FontSize = 18;
         view(-43, 13);
         
@@ -173,9 +172,9 @@ end
 % Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = ...
     find_opt_control(initial_state,value_funs, compute_grid, ...
-        dyn_sys, controls, uMode, dt);
+        dyn_sys, controls, uMode);
     
-if reached & plot
+if reached && plot
     figure(2)
     plotTraj(traj, traj_tau, thetas, trueThetaIdx, ...
         gmin, gmax, gnums, goalSetRad, extraPltArgs);
@@ -184,9 +183,25 @@ end
 if ~reached
     fprintf("BRS never included initial state! Cannot find optimal control.");
 end
+
 ctrl_seq
 
 %% Helper functions
+
+function controls = generate_controls(gdisc)
+    controls = cell(1,9);
+    xs = {0, -1*gdisc(1), gdisc(1)};
+    ys = {0, -1*gdisc(2), gdisc(2)};
+    
+    ind = 1;
+    for i=1:numel(xs)
+        for j=1:numel(ys)
+            controls{ind} = [xs{i}, ys{j}];
+            ind = ind + 1;
+        end
+    end
+end
+
 % TODO: Make x_ind, b_ind depend on real values not indices
 function value_fun = construct_value_fun_fmm(x_ind, y_ind, b_ind, gmin, gmax, gnums)
     grid = createGrid(gmin, gmax, gnums);
@@ -201,7 +216,7 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
@@ -217,7 +232,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
     
     zero_tol = -0.03;
     while i > 0
-        fprintf('Value of initial state at t=-%f: %f ...\n', i*dt, ...
+        fprintf('Value of initial state at t=-%f: %f ...\n', i, ...
                 value_funs{i}(initial_idx));
         if value_funs{i}(initial_idx) <= zero_tol
             fprintf('Value of initial state at earliest appearance in BRS: %f\n', ...
@@ -227,7 +242,8 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
         end
         i = i - 1;
     end
-    
+    start_t
+    num_timesteps
     if start_t == num_timesteps
         reached = true;
         time = 0;
@@ -247,7 +263,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             vals = [];
             value_fun_next = value_funs{t+1};
             for i=1:numel(controls)
-                u_i = controls(i);
+                u_i = controls{i};
                 idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
                 val = value_fun_next(idx{1});
                 vals = [vals, val];
@@ -257,10 +273,10 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             else
                 [~, ctrl_ind] = max(vals, [], 2);
             end
-            ctrl = controls(ctrl_ind);
+            ctrl = controls{ctrl_ind};
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
-            time = time + dyn_sys.dt;
+            time = time + 1;
             
             traj(1:3, j+1) = cell2mat(state);
             traj_tau(j+1) = time;
