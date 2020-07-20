@@ -173,7 +173,7 @@ end
 % Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = ...
     find_opt_control(initial_state,value_funs, compute_grid, ...
-        dyn_sys, controls, uMode, dt);
+        dyn_sys, controls, uMode, dt, likelyMasks);
     
 if reached & plot
     figure(2)
@@ -201,7 +201,7 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt, likelyMasks)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
@@ -249,7 +249,8 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             for i=1:numel(controls)
                 u_i = controls(i);
                 idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
-                val = value_fun_next(idx{1});
+                likelyMask = likelyMasks(num2str(u_i));
+                val = value_fun_next(idx{1}) * likelyMask(idx{1});
                 vals = [vals, val];
             end
             if strcmp(uMode, "min")

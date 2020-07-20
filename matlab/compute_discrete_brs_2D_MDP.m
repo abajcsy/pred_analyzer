@@ -11,7 +11,7 @@ gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "max"; % min or max
-num_timesteps = 10;
+num_timesteps = 2;
 tol = 0.1;
 compType = 'conf';
 %compType = 'goal';
@@ -24,7 +24,7 @@ centerPgoal1 = 0.9;
 gdisc = (gmax - gmin) ./ (gnums-1);
 controls = generate_controls(gdisc);
 num_ctrls = numel(controls);
-uThresh = 0.16;
+uThresh = 0.16; % 0.16;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -32,8 +32,8 @@ extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 row_len = 2;        % Number of subplots on each row of overall plot
-plot = true;        % Visualize the BRS?
-plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplots.
+plot = false;        % Visualize the BRS?
+plotVideo = false;   % Plot the BRS growing as a video? If false, plots as subplots.
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
@@ -59,7 +59,7 @@ value_funs{num_timesteps} = initial_value_fun;
 
 % Compute BRS backwards in time.
 tidx = num_timesteps - 1;
-
+    
 while tidx > 0
     fprintf("Computing value function for iteration t=%f...\n", tidx);
     %(Benchmarking) Timer for single computation.
@@ -78,7 +78,8 @@ while tidx > 0
         u_i = controls{i};
         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u_i));
-        possible_value_funs(:,:,:,i) = compute_grid.GetDataAtReal(next_state) .* likelyMask;
+        data_next = compute_grid.GetDataAtReal(next_state);
+        possible_value_funs(:,:,:,i) = data_next .* likelyMask;
     end
     
     % Minimize/Maximize over possible future value functions.
@@ -102,6 +103,26 @@ while tidx > 0
 %         break;
 %     end
 end
+
+a = compute_grid.RealToCoords(initial_state); %t=1
+ai = compute_grid.RealToIdx(a);
+ai = ai{1};
+
+initV = value_funs{2};
+vals = [];
+for i=1:num_ctrls
+    u_i = controls{i};
+    next_state = dyn_sys.dynamics(a, u_i);
+    likelyMask = likelyMasks(num2str(u_i));
+    data_next = compute_grid.GetDataAtReal(next_state);
+    vals = [vals data_next];
+end
+
+vals
+[max_val, ind] = max(vals,[],2);
+vals(ind)
+max_val
+next_state = dyn_sys.dynamics(a, controls{ind})
 
 % End timing the overall computation;
 toc(overallStart);
@@ -151,6 +172,7 @@ elseif plot && ~plotVideo
                -0.1 1.1];
     for i=1:num_timesteps
         % Plot value function at time i.
+        dt=1;
         h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
         axis(viewAxis)
         axis square
@@ -172,7 +194,7 @@ end
 % Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = ...
     find_opt_control(initial_state,value_funs, compute_grid, ...
-        dyn_sys, controls, uMode);
+        dyn_sys, controls, uMode, likelyMasks);
     
 if reached && plot
     figure(2)
@@ -216,7 +238,7 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, likelyMasks)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
@@ -242,8 +264,6 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
         end
         i = i - 1;
     end
-    start_t
-    num_timesteps
     if start_t == num_timesteps
         reached = true;
         time = 0;
@@ -258,6 +278,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
         state = initial_coord;
         j = 1;
         time = 0;
+        
         for t=start_t:num_timesteps-1
 %             state
             vals = [];
@@ -265,7 +286,8 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             for i=1:numel(controls)
                 u_i = controls{i};
                 idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
-                val = value_fun_next(idx{1});
+                likelyMask = likelyMasks(num2str(u_i));
+                val = value_fun_next(idx{1}) * likelyMask(idx{1});
                 vals = [vals, val];
             end
             if strcmp(uMode, "min")
