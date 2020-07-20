@@ -11,7 +11,7 @@ gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "max"; % min or max
-num_timesteps = 2;
+num_timesteps = 10;
 tol = 0.1;
 compType = 'conf';
 %compType = 'goal';
@@ -32,12 +32,12 @@ extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 row_len = 2;        % Number of subplots on each row of overall plot
-plot = false;        % Visualize the BRS?
-plotVideo = false;   % Plot the BRS growing as a video? If false, plots as subplots.
+plot = true;        % Visualize the BRS?
+plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplots.
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {0,0,0.5};
+initial_state = {3,2,0.5};
 dyn_sys = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
             initial_state, uThresh, trueThetaIdx);
 
@@ -103,26 +103,6 @@ while tidx > 0
 %         break;
 %     end
 end
-
-a = compute_grid.RealToCoords(initial_state); %t=1
-ai = compute_grid.RealToIdx(a);
-ai = ai{1};
-
-initV = value_funs{2};
-vals = [];
-for i=1:num_ctrls
-    u_i = controls{i};
-    next_state = dyn_sys.dynamics(a, u_i);
-    likelyMask = likelyMasks(num2str(u_i));
-    data_next = compute_grid.GetDataAtReal(next_state);
-    vals = [vals data_next];
-end
-
-vals
-[max_val, ind] = max(vals,[],2);
-vals(ind)
-max_val
-next_state = dyn_sys.dynamics(a, controls{ind})
 
 % End timing the overall computation;
 toc(overallStart);
@@ -283,11 +263,12 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
 %             state
             vals = [];
             value_fun_next = value_funs{t+1};
+            idx_curr = grid.RealToIdx(state);
             for i=1:numel(controls)
                 u_i = controls{i};
                 idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
                 likelyMask = likelyMasks(num2str(u_i));
-                val = value_fun_next(idx{1}) * likelyMask(idx{1});
+                val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
                 vals = [vals, val];
             end
             if strcmp(uMode, "min")

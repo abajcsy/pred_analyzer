@@ -10,7 +10,7 @@ gmax = [4, 4, 1];
 gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
-uMode = "min"; % min or max
+uMode = "max"; % min or max
 num_timesteps = 10;
 tol = 0.1;
 compType = 'conf';
@@ -25,7 +25,7 @@ centerPgoal1 = 0.9;
 num_ctrls = 20;
 controls = linspace(0,2*pi,num_ctrls);
 v = 1;
-uThresh = 0.00;
+uThresh = 0.08;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -34,11 +34,11 @@ extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 row_len = 2;        % Number of subplots on each row of overall plot
 plot = true;        % Visualize the BRS?
-plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplots.
+plotVideo = false;   % Plot the BRS growing as a video? If false, plots as subplots.
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {-2,0,0.5};
+initial_state = {3,2,0.5};
 dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
             initial_state, v, uThresh, trueThetaIdx);
 
@@ -246,23 +246,24 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
 %             state
             vals = [];
             value_fun_next = value_funs{t+1};
+            idx_curr = grid.RealToIdx(state);
             for i=1:numel(controls)
                 u_i = controls(i);
                 idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
                 likelyMask = likelyMasks(num2str(u_i));
-                val = value_fun_next(idx{1}) * likelyMask(idx{1});
+                val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
                 vals = [vals, val];
             end
             if strcmp(uMode, "min")
-                [~, ctrl_ind] = min(vals, [], 2);
+                [v_opt, ctrl_ind] = min(vals, [], 2);
             else
-                [~, ctrl_ind] = max(vals, [], 2);
+                [v_opt, ctrl_ind] = max(vals, [], 2);
             end
             ctrl = controls(ctrl_ind);
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
             time = time + dyn_sys.dt;
-            
+            v_opt
             traj(1:3, j+1) = cell2mat(state);
             traj_tau(j+1) = time;
 
