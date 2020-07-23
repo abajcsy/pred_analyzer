@@ -14,6 +14,7 @@ uMode = "max"; % min or max
 num_timesteps = 10;
 tol = 0.1;
 compType = 'conf';
+zero_tol = 0.00;%-0.03;
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
@@ -24,7 +25,7 @@ trueThetaIdx = 1;
 centerPgoal1 = 0.9;
 num_ctrls = 20;
 controls = linspace(0,2*pi,num_ctrls);
-v = 1;
+v = 1.0; % 1.0;
 uThresh = 0.08;
 
 % ---- Plotting info --- %
@@ -34,11 +35,11 @@ extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 row_len = 2;        % Number of subplots on each row of overall plot
 plot = true;        % Visualize the BRS?
-plotVideo = false;   % Plot the BRS growing as a video? If false, plots as subplots.
+plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplots.
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {3,2,0.5};
+initial_state = {0,0,0.5};
 dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
             initial_state, v, uThresh, trueThetaIdx);
 
@@ -60,6 +61,7 @@ value_funs{num_timesteps} = initial_value_fun;
 
 % Compute BRS backwards in time.
 tidx = num_timesteps - 1;
+start_idx = 0;
 
 while tidx > 0
     fprintf("Computing value function for t=%f...\n", tidx*dt);
@@ -90,18 +92,19 @@ while tidx > 0
     end
     
     value_funs{tidx} = value_fun;
+    start_idx = tidx;
     tidx = tidx - 1;
     
     singleCompEnd = toc(singleCompStart); 
     fprintf("    [One backup computation time: %f s]\n", singleCompEnd);
     
-%     % Index of initial state.
-%     initial_idx = compute_grid.RealToIdx(initial_state);
-%     initial_idx = initial_idx{1};
-%     if value_fun(initial_idx) <= 0.0
-%         fprintf("    Found earliest BRS containing z0!\n");
-%         break;
-%     end
+    % Index of initial state.
+    initial_idx = compute_grid.RealToIdx(initial_state);
+    initial_idx = initial_idx{1};
+    if value_fun(initial_idx) <= zero_tol
+        fprintf("    Found earliest BRS containing z0!\n");
+        break;
+    end
 end
 
 % End timing the overall computation;
@@ -114,7 +117,7 @@ if plot && plotVideo
     viewAxis = [gmin(1) gmax(1) ...
                gmin(2) gmax(2) ...
                -0.1 1.1];
-    for i=num_timesteps:-1:1
+    for i=num_timesteps:-1:start_idx
         hold on
         % Plot value function backwards in time.
         axis(viewAxis)
@@ -150,9 +153,10 @@ elseif plot && ~plotVideo
     viewAxis = [gmin(1) gmax(1) ...
                gmin(2) gmax(2) ...
                -0.1 1.1];
-    for i=1:num_timesteps
+    for j=1:(num_timesteps-start_idx)
+        i = j + start_idx;
         % Plot value function at time i.
-        h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
+        h = subplot(floor((num_timesteps - start_idx)/row_len) + 1,row_len,j);
         axis(viewAxis)
         axis square
         visSetIm(g,value_funs{i});
@@ -173,7 +177,7 @@ end
 % Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = ...
     find_opt_control(initial_state,value_funs, compute_grid, ...
-        dyn_sys, controls, uMode, dt, likelyMasks);
+        dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol);
     
 if reached & plot
     figure(2)
@@ -201,7 +205,7 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt, likelyMasks)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
@@ -215,8 +219,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
     start_t = 0;
     i = num_timesteps;
     
-    zero_tol = -0.03;
-    while i > 0
+    while i >= start_idx
         fprintf('Value of initial state at t=-%f: %f ...\n', i*dt, ...
                 value_funs{i}(initial_idx));
         if value_funs{i}(initial_idx) <= zero_tol
@@ -263,7 +266,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
             time = time + dyn_sys.dt;
-            v_opt
+            
             traj(1:3, j+1) = cell2mat(state);
             traj_tau(j+1) = time;
 
