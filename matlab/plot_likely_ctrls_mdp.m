@@ -15,15 +15,15 @@ gnums = [20,20,20];
 thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 gdisc = (gmax - gmin) ./ (gnums-1);
-controls = generate_controls_ext(gdisc);
+controls = generate_controls(gdisc);
 num_ctrls = numel(controls);
-uThresh = 0.07;
+uThresh = 0.14;
 
 % Initial state and dynamical system setup
 initial_state = cell(1,3);
-initial_state{1} = 1;
+initial_state{1} = 0;
 initial_state{2} = 0;
-initial_state{3} = 0.5;
+initial_state{3} = 0.1;
 dyn_sys = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
             initial_state, uThresh, trueThetaIdx);
 

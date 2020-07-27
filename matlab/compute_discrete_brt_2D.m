@@ -11,10 +11,11 @@ gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
 uMode = "max"; % min or max
-num_timesteps = 10;
+num_timesteps = 20;
 tol = 0.1;
 compType = 'conf';
-zero_tol = 0.00;%-0.03;
+zero_tol = -0.00001;%-0.03;
+minWith = "zero"; % none or zero
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
@@ -24,9 +25,9 @@ thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 centerPgoal1 = 0.9;
 num_ctrls = 20;
-controls = linspace(0,2*pi,num_ctrls);
+controls = linspace(0,2*pi - 1e-2,num_ctrls);
 v = 1.0; % 1.0;
-uThresh = 0.075;
+uThresh = 0.060;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -39,7 +40,7 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {0,0,0.5};
+initial_state = {-3.5,2,0.1};
 dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
             initial_state, v, uThresh, trueThetaIdx);
 
@@ -86,9 +87,17 @@ while tidx > 0
     
     % Minimize/Maximize over possible future value functions.
     if strcmp(uMode, "min")
-        value_fun = min(possible_value_funs, [], 4);
+        if strcmp(minWith, "none")
+            value_fun = min(possible_value_funs, [], 4);
+        else
+            value_fun = min(min(possible_value_funs, [], 4), value_funs{num_timesteps});
+        end
     else
-        value_fun = max(possible_value_funs, [], 4);
+        if strcmp(minWith, "none")
+            value_fun = max(possible_value_funs, [], 4);
+        else
+            value_fun = min(max(possible_value_funs, [], 4), value_funs{num_timesteps});
+        end
     end
     
     value_funs{tidx} = value_fun;
@@ -177,7 +186,7 @@ end
 % Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau, ctrl_seq, reached, time] = ...
     find_opt_control(initial_state,value_funs, compute_grid, ...
-        dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol);
+        dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol, minWith);
     
 if reached & plot
     figure(2)
@@ -205,7 +214,7 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, dt, likelyMasks, start_idx, zero_tol, minWith)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
@@ -257,11 +266,13 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
                 val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
                 vals = [vals, val];
             end
+            % No need for minWith inside finding optimal control
             if strcmp(uMode, "min")
                 [v_opt, ctrl_ind] = min(vals, [], 2);
             else
                 [v_opt, ctrl_ind] = max(vals, [], 2);
             end
+            
             ctrl = controls(ctrl_ind);
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
