@@ -17,7 +17,7 @@ trueThetaIdx = 1;
 gdisc = (gmax - gmin) ./ (gnums-1);
 controls = generate_controls(gdisc);
 num_ctrls = numel(controls);
-uThresh = 0.14;
+uThresh = 0.13;
 
 % Initial state and dynamical system setup
 initial_state = cell(1,3);
@@ -47,7 +47,12 @@ for i=1:length(xs)
                 next_state = dyn_sys.dynamics(state,u);
                 dx = next_state{1} - x;
                 dy = next_state{2} - y;
-                quiver(x,y,dx,dy,0.4)
+                quiver(x,y,dx,dy,0.4);
+                
+                % if the control is "STOP", then plot a point.
+                if u(1) == 0 && u(2) == 0
+                    scatter(x,y,'k');
+                end
                 hold on
             end
         end
@@ -59,6 +64,10 @@ for i=1:length(thetas)
     hold on
 end
 
+title_str = strcat("Likely Controls under theta=(", ...
+    num2str(true_theta(1)), ", ", num2str(true_theta(2)), ...
+    ") and uThresh=", num2str(uThresh));
+title(title_str);
 xlabel("x")
 ylabel("y")
 
