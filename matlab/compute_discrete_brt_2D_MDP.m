@@ -15,7 +15,7 @@ num_timesteps = 20;
 tol = 0.1;
 compType = 'conf';
 zero_tol = -0.00001; % -0.03;
-minWith = "none"; % none or zero
+minWith = "zero"; % none or zero
 %compType = 'goal';
 %compType = 'conf_and_goal';
 
@@ -39,7 +39,7 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {2,0,0.5};
+initial_state = {-2,0,0.1};
 dyn_sys = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
             initial_state, uThresh, trueThetaIdx);
 
@@ -88,17 +88,22 @@ while tidx > 0
     % Minimize/Maximize over possible future value functions.
     if strcmp(uMode, "min")
         if strcmp(minWith, "none")
+            fprintf("min none")
             value_fun = min(possible_value_funs, [], 4);
         else
+            fprintf("min zero")
             value_fun = min(min(possible_value_funs, [], 4), value_funs{end});
         end
     else
         if strcmp(minWith, "none")
+            fprintf("max none")
             value_fun = max(possible_value_funs, [], 4);
         else
+            fprintf("max zero")
             value_fun = min(max(possible_value_funs, [], 4), value_funs{end});
         end
     end
+%     check = sum(value_fun - value_funs{end} > 0, 'all') % should be 0
     
     value_funs{tidx} = value_fun;
     start_idx = tidx;
@@ -201,7 +206,9 @@ end
 % ctrl_seq
 % state_seq
 for i=1:numel(state_seq)
-    state_seq{i}{3}
+    s = state_seq{i};
+    idx = compute_grid.RealToIdx(s);
+    v = value_funs{end}(idx{1})
 end
 
 %% Helper functions
