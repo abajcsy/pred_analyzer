@@ -122,6 +122,10 @@ while tidx > 0
     end
 end
 
+% Save data
+% save('brt_min_uthresh013.mat', 'value_funs', 'gmin', 'gmax', 'gnums', ...
+%     'thetas', 'dyn_sys', 'uThresh', 'trueThetaIdx', 'num_timesteps', 'uMode');
+
 % End timing the overall computation;
 toc(overallStart);
 
@@ -246,7 +250,8 @@ function value_fun = construct_value_fun(center, widths, gmin, gmax, gnums)
 end
 
 function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, uMode, likelyMasks, start_idx, zero_tol)
+    find_opt_control(initial_state, value_funs, grid, dyn_sys, controls, ...
+    uMode, likelyMasks, start_idx, zero_tol)
 
     [~, num_timesteps] = size(value_funs);
     n = numel(initial_state);
