@@ -16,15 +16,15 @@ classdef HumanBelief2D < handle
     end
     
     methods
-        function obj = HumanBelief2D(dt, thetas, num_ctrls, controls, ...
-                z0, v, uThresh, trueThetaIdx)
+        function obj = HumanBelief2D(z0, thetas, trueThetaIdx, uThresh, ...
+                dt, v, num_ctrls)
             % Construct an instance of Grid.
             obj.dt = dt;
             obj.thetas = thetas;
             obj.num_ctrls = num_ctrls;
-            obj.controls = controls;
-            obj.z0 = z0;
             obj.v = v;
+            obj.controls = obj.generate_controls_non_mdp(obj.num_ctrls, obj.v);
+            obj.z0 = z0;
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
         end
@@ -81,6 +81,18 @@ classdef HumanBelief2D < handle
             end
             pu = numerator ./ denominator;
         end
+        
+        
+        function controls = generate_controls_non_mdp(obj, n, v)
+            us = linspace(0,2*pi - 1e-2,n);
+            controls = cell(1,n);
+
+            for i=1:n
+                u_i = us(i);
+                controls{i} = [v*cos(u_i), v*sin(u_i)];
+            end
+        end
+
     end
 end
 

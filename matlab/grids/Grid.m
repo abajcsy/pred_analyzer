@@ -20,7 +20,12 @@ classdef Grid < handle
             if size(gnums) == 1
                 obj.data = zeros(1,gnums);
             else
-                obj.data = zeros(gnums);
+                if ~isrow(gnums)
+                    obj.gnums = gnums';
+                    obj.gmax = gmax';
+                    obj.gmin = gmin';
+                end
+                obj.data = zeros(obj.gnums);
             end
             
             [~, dims] = size(obj.gnums);

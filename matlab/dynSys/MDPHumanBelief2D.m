@@ -14,12 +14,12 @@ classdef MDPHumanBelief2D < handle
     end
     
     methods
-        function obj = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
-                z0, uThresh, trueThetaIdx)
+        function obj = MDPHumanBelief2D(z0, thetas, trueThetaIdx, ...
+                uThresh, gdisc)
             % Construct an instance of Grid.
             obj.thetas = thetas;
-            obj.num_ctrls = num_ctrls;
-            obj.controls = controls;
+            obj.controls = obj.generate_controls_mdp(gdisc);
+            obj.num_ctrls = numel(obj.controls);
             obj.z0 = z0;
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
@@ -105,6 +105,20 @@ classdef MDPHumanBelief2D < handle
                 denominator = denominator + exp(-((x_next_i - theta(1)).^2 + (y_next_i - theta(2)).^2).^0.5);
             end
             pu = numerator ./ denominator;
+        end
+        
+        function controls = generate_controls_mdp(obj, gdisc)
+            controls = cell(1,9);
+            xs = {0, -1*gdisc(1), gdisc(1)};
+            ys = {0, -1*gdisc(2), gdisc(2)};
+
+            ind = 1;
+            for i=1:numel(xs)
+                for j=1:numel(ys)
+                    controls{ind} = [xs{i}, ys{j}];
+                    ind = ind + 1;
+                end
+            end
         end
     end
 end
