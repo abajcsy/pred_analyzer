@@ -97,6 +97,64 @@ classdef Grid < handle
                 obj.data(idx{data_ind}) = val(data_ind);
             end
         end
+        
+        % Generalize to n-dims, only implemented for n=3 currently.
+        function val = Interpolate(obj,state)
+            coords = obj.RealToCoords(state);
+            grid_coords = cell(1,2^3);
+            alphas = cell(1,2^3);
+
+            % Find upper/lower bounds of box surrounding (ungridded) next
+            % state and alpha values for each dimension
+            for l=1:3
+                if coords{l} < state{l}
+                    other = coords{l} + obj.gdisc(l);
+                    grid_coords{l} = [coords{l}, other];
+                elseif coords{l} > state{l}
+                    other = coords{l} - obj.gdisc(l);
+                    grid_coords{l} = [other, coords{l}];
+                else
+                    other = coords{l} - grid.gdisc(l);
+                    if other <= obj.gmin(l)
+                        grid_coords{l} = [coords{l}, coords{l} + obj.gdisc(l)];
+                    else
+                        grid_coords{l} = [other, coords{l}];
+                    end
+                end
+                alphas{l} = 1 - (state{l} - grid_coords{l}(1))/obj.gdisc(l);
+            end
+
+            val = 0;
+            for a=1:2
+                if a == 1
+                    w_a = alphas{1};
+                else
+                    w_a = 1 - alphas{1};
+                end
+
+                for b=1:2
+                    if b == 1
+                        w_b = alphas{2};
+                    else
+                        w_b = 1 - alphas{2};
+                    end
+
+                    for c=1:2
+                        if c == 1
+                            w_c = alphas{3};
+                        else
+                            w_c = 1 - alphas{3};
+                        end
+
+                        weight = w_a*w_b*w_c;
+
+                        vertex = {grid_coords{1}(a),grid_coords{2}(b),grid_coords{3}(c)};
+                        vertex_idx = obj.RealToIdx(vertex);
+                        val = val + weight*obj.data(vertex_idx{1});
+                    end
+                end
+            end
+        end
     end
 end
 
