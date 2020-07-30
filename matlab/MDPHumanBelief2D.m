@@ -63,6 +63,35 @@ classdef MDPHumanBelief2D < handle
             end
         end
         
+        function likelyMasks = getLikelyMasks_topk(obj, z)
+            likelyMasks = containers.Map;
+            
+            probs = zeros([size(z{1}), numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                
+%                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
+%                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
+%                 normalizer = b0 + b1;
+%                 
+%                 mask = (normalizer >= obj.uThresh);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) >= delta}
+                putheta = obj.pugivenxtheta(u_i, z, obj.thetas{obj.trueThetaIdx});
+                probs(:,:,:,i) = putheta;
+%                 likelyMasks(num2str(u_i)) = mask;
+            end
+            mask = (sort(probs,4) <= obj.uThresh);
+            mask = mask * 1.0;
+            mask(mask==0) = nan;
+            
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                likelyMasks(num2str(u_i)) = mask(:,:,:,i);
+            end
+        end
+        
         function pu = pugivenxtheta(obj,u,z,theta)
             % Return probability of control u given state x and model parameter theta.
             x_next = z{1} + u(1);
