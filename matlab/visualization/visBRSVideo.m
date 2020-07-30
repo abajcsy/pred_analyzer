@@ -18,9 +18,9 @@ function visBRSVideo(g, value_funs, initial_state, tau)
         
         % Visualize computation grid through the 'grid' feature in
         % plotting.
-        set(gca,'xtick',linspace(g.min(1),g.max(1),g.nums(1)));
-        set(gca,'ytick',linspace(g.min(2),g.max(2),g.nums(2)));
-        set(gca,'ztick',linspace(g.min(3),g.max(3),g.nums(3)));
+        set(gca,'xtick',linspace(g.min(1),g.max(1),g.N(1)));
+        set(gca,'ytick',linspace(g.min(2),g.max(2),g.N(2)));
+        set(gca,'ztick',linspace(g.min(3),g.max(3),g.N(3)));
 
         grid on;
         
