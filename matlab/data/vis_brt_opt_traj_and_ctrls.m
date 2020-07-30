@@ -1,8 +1,8 @@
 clear all
 close all
 
-% load('brt_max_uthresh013.mat'); 
-load('brt_min_uthresh013.mat');
+% load('brt_min_uthresh013.mat'); 
+load('brt_max_uthresh013.mat');
 
 % Setup plotting & traj info.
 zero_tol = -0.00001;
@@ -17,14 +17,17 @@ compute_grid = Grid(gmin, gmax, gnums);
 
 % Store candidate initial conditions to test at specific times. 
 test_init_conds = containers.Map;
-test_init_conds(num2str(num_timesteps-1)) = {{-1.474, 1.895, 0.8947}, ...
-                                            {0.2105, 3.579, 0.7895}, ...
-                                            {1.474, 0.2105, 0.7895}};
-test_init_conds(num2str(num_timesteps-2)) = {{0.2105, 1.053, 0.5789}};
-test_init_conds(num2str(num_timesteps-6)) = {{-1.474, 0.6316, 0.3684}};
-test_init_conds(num2str(num_timesteps-13)) = {{-2.316, -1.474, 0.3684}, ...
-                                            {3.579, -1.895, 0.5263}};
-                                            % {-3.158,0.2105, 0.4211}
+% test_init_conds(num2str(num_timesteps-1)) = {{-1.474, 1.895, 0.8947}, ...
+%                                             {0.2105, 3.579, 0.7895}, ...
+%                                             {1.474, 0.2105, 0.7895}};
+% test_init_conds(num2str(num_timesteps-2)) = {{0.2105, 1.053, 0.5789}};
+% test_init_conds(num2str(num_timesteps-6)) = {{-1.474, 0.6316, 0.3684}};
+% test_init_conds(num2str(num_timesteps-13)) = {{-2.316, -1.474, 0.3684}, ...
+%                                             {3.579, -1.895, 0.5263}};
+test_init_conds(num2str(num_timesteps-13)) = {{3.579, -1.895, 0.5263}};
+                                        
+                                            % {-3.158,0.2105, 0.4211}                                          
+                                            
 fidx = 1;
 for k = keys(test_init_conds)
     init_conds = test_init_conds(k{1});
@@ -114,6 +117,9 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
     initial_idx = initial_idx{1};
     start_t = start_idx; %0;
     i = num_timesteps;
+    
+    % debugging!
+    val_at_initial = value_funs{start_idx}(initial_idx);
     
     likelyMasks = dyn_sys.getLikelyMasks(grid.get_grid());
     
