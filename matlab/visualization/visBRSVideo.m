@@ -34,3 +34,4 @@ function visBRSVideo(g, value_funs, initial_state, tau)
             delete(h);
         end
     end
+    hold off

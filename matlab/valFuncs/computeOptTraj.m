@@ -18,9 +18,19 @@ grid = Grid(g.min, g.max, g.N); % for converting from real to linear index
 all_states = grid.get_grid();
 likelyMasks = dynSys.getLikelyMasks(all_states);
 
+upper = tau(end);
+lower = 1;
+
+% Determine the earliest time that the current state is in the reachable set
+tEarliest = findEarliestBRSInd(grid, value_funs, z0, upper, lower);
+
+if tEarliest == 0
+    fprintf("BRS never included initial state! Cannot find optimal traj.");
+    return;
+end
+
 % Time parameters
-iter = 1;
-tauLength = length(tau);
+tauLength = length(tau)-tEarliest+1;
 traj = nan(g.dim, tauLength);
 traj_tau = [];
 if iscell(z0)
@@ -29,38 +39,20 @@ else
     traj(:,1) = z0;
 end
 
-tEarliest = 1;
+iter = tEarliest;
 z = z0;
 
-while iter <= tauLength 
-    upper = tau(end);
-    lower = tEarliest;
-
-    % Determine the earliest time that the current state is in the reachable set
-    % Binary search
-    tEarliest = findEarliestBRSInd(grid, value_funs, z0, upper, lower);
-
-    if tEarliest == 0
-        fprintf("BRS never included initial state! Cannot find optimal traj.");
-        return;
-    end
-
-    % BRS at current time
-    BRS_at_t = value_funs{tEarliest};
-    
-    if tEarliest == tauLength
-        % Trajectory has entered the target
-        break
-    end
+while iter < tauLength 
 
     % Find the optimal control
     vals = [];
+    value_fun_next = value_funs{iter+1};
     idx_curr = grid.RealToIdx(z);
     for i=1:dynSys.num_ctrls
         u_i = dynSys.controls{i};
         idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
         likelyMask = likelyMasks(num2str(u_i));
-        val = BRS_at_t(idx{1}) * likelyMask(idx_curr{1});
+        val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
         vals = [vals, val];
     end
     if strcmp(uMode, "min")
@@ -84,8 +76,6 @@ while iter <= tauLength
     end
 end
 
-% Delete unused indices
-traj(:,iter:end) = [];
-traj_tau = tau(1:iter-1);
+traj_tau = tau(1:iter);
 
 end

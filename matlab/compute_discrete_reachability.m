@@ -21,7 +21,7 @@ widths = [(gmax(1) - gmin(1)) - xyoffset; ...
 initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
-t0 = 0;
+t0 = 1;
 num_timesteps = 10;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
@@ -83,10 +83,10 @@ if plot
     
     % Plot the optimal traj
     plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...
-        gmin, gmax, gnums, 0, extraPltArgs);
+        gmin, gmax, gnums, 0, value_funs, extraPltArgs);
     
     % Plot the BRS.
-    visBRSVideo(g, value_funs, initial_state, tau);
+%     visBRSVideo(g, value_funs, initial_state, tau);
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
 

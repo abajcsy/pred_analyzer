@@ -1,5 +1,5 @@
 function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
-    grid_min, grid_max, grid_nums, goalSetRad, extraPltArgs)
+    grid_min, grid_max, grid_nums, goalSetRad, value_funs, extraPltArgs)
     
     figure
     hold on
@@ -48,6 +48,13 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
                 'markeredgecolor', color, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
+        
+        % ---- Debugging! ---- %
+        % Shows the value function for the previous point.
+        vg = createGrid(grid_min, grid_max, grid_nums);
+        h = visSetIm(vg, value_funs{t-1});
+        delete(h);
+        % ---- Debugging! ---- %
     end
     
     xcurr = traj(1:3, end);
@@ -131,4 +138,5 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         saveas(gcf, strcat(repo.path, '/imgs/', filename));
         fprintf("Saved figures!");
     end
+    hold off
 end
