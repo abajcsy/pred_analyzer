@@ -1,4 +1,4 @@
-classdef MDPHumanBelief2D < handle
+classdef MDPHumanBelief2D_K < handle
     % Human belief 1D class
     
     properties
@@ -14,7 +14,7 @@ classdef MDPHumanBelief2D < handle
     end
     
     methods
-        function obj = MDPHumanBelief2D(z0, thetas, trueThetaIdx, ...
+        function obj = MDPHumanBelief2D_K(z0, thetas, trueThetaIdx, ...
                 uThresh, gdisc)
             % Construct an instance of Grid.
             obj.thetas = thetas;

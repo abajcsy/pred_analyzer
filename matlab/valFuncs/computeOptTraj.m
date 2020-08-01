@@ -42,14 +42,14 @@ else
     traj(:,1) = z0;
 end
 
-iter = tEarliest;
+iter = 1;
 z = z0;
 
 while iter < tauLength 
 
     % Find the optimal control
     vals = [];
-    value_fun_next = value_funs{iter+1};
+    value_fun_next = value_funs{tEarliest+iter};
     idx_curr = grid.RealToIdx(z);
     for i=1:dynSys.num_ctrls
         u_i = dynSys.controls{i};

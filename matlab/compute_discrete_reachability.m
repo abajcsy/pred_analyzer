@@ -22,12 +22,12 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 9;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "min"; % min or max
-uThresh = 0.14; % 0.16;
+uThresh = 0.00;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?

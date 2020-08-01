@@ -32,7 +32,7 @@ else
 end
 
 num_ctrls = numel(controls);
-uThresh = 0.14; % 0.16;
+uThresh = 0;%0.14; % 0.16;
 
 % ---- Plotting info --- %
 extraPltArgs.compType = compType;
@@ -307,6 +307,7 @@ function [traj, traj_tau, ctrl_seq, reached, time] = ...
             else
                 [~, ctrl_ind] = max(vals, [], 2);
             end
+            ctrl_ind
             ctrl = controls{ctrl_ind};
             ctrl_seq{j} = ctrl;
             state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
