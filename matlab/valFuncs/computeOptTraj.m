@@ -29,6 +29,9 @@ if tEarliest == 0
     return;
 end
 
+% Grid initial condition
+z0 = grid.RealToCoords(z0);
+
 % Time parameters
 tauLength = length(tau)-tEarliest+1;
 traj = nan(g.dim, tauLength);

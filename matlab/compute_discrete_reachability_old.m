@@ -10,7 +10,7 @@ gmax = [4, 4, 1];
 gnums = [20, 20, 20];
 
 % Hamilton-Jacobi Problem Setup
-uMode = "max"; % min or max
+uMode = "min"; % min or max
 num_timesteps = 20;
 tol = 0.1;
 compType = 'conf';
@@ -45,9 +45,8 @@ plotVideo = true;   % Plot the BRS growing as a video? If false, plots as subplo
 % ---- Plotting info --- %
 
 % Initial state and dynamical system setup
-initial_state = {-2,0,0.1};
-dyn_sys = MDPHumanBelief2D(thetas, num_ctrls, controls, ...
-            initial_state, uThresh, trueThetaIdx);
+initial_state = {-1.474, -1.053, 0.1355};
+dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Target Set Setup
 xyoffset = 0.1;
