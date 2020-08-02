@@ -63,9 +63,11 @@ classdef MDPHumanBelief2D_K < handle
             end
             
             if grid
-                mask = (sort(probs,4) > numel(obj.controls) - obj.uThresh);
+                [~, IX] = sort(probs,4);
+                mask = (IX > numel(obj.controls) - obj.uThresh);
             else
-                mask = (sort(probs,2) > numel(obj.controls) - obj.uThresh);
+                [~, IX] = sort(probs,2);
+                mask = (IX > numel(obj.controls) - obj.uThresh);
             end
             
             mask = mask * 1.0;

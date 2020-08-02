@@ -22,12 +22,12 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "max"; % min or max
-uThresh = 0.14;%0.14; % 0.16;
+uThresh = 2;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -41,7 +41,7 @@ initial_state = {0, 0, 0.1};
 
 % MDP human.
 gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+dyn_sys = MDPHumanBelief2D_K(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Discrete control angle human. 
 % v = 1.0;
@@ -59,7 +59,7 @@ extraArgs.targets = initial_value_fun;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
-minWith = "minVWithL"; 
+minWith = "none"; 
 
 %% Solve for the discrete-time value function!
 [value_funs, tau, extraOuts] = ...
