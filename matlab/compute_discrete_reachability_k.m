@@ -61,12 +61,15 @@ extraArgs.targets = initial_value_fun;
 % 'minVWithL' for backward reachable tube (BRT)
 minWith = "none"; 
 
+%% Optimal control params
+extraArgsCtrl.interpolate = false;
+
 %% Solve for the discrete-time value function!
 [value_funs, tau, extraOuts] = ...
     DiscTimeHJIPDE_solve(initial_value_fun, tau, schemeData, minWith, extraArgs);
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
-[traj, traj_tau] = computeOptTraj(initial_state, g, value_funs, tau, dyn_sys, uMode);
+[traj, traj_tau] = computeOptTraj(initial_state, g, value_funs, tau, dyn_sys, uMode, extraArgsCtrl);
     
 %% Plot optimal trajectory and value functions
 % if isfield(extraOuts, 'stoptau')

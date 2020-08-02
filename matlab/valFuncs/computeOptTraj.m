@@ -1,4 +1,4 @@
-function [traj, traj_tau] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode)
+function [traj, traj_tau] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
 % [traj, traj_tau] = computeOptTraj(g, data, tau, dynSys, extraArgs)
 %   Computes the optimal trajectories given the optimal value function
 %   represented by (g, data), associated time stamps tau, dynamics given in
@@ -30,7 +30,11 @@ if tEarliest == 0
 end
 
 % Grid initial condition
-z0 = grid.RealToCoords(z0);
+if extraArgs.interpolate
+    z0 = z0;
+else
+    z0 = grid.RealToCoords(z0);
+end
 
 % Time parameters
 tauLength = length(tau)-tEarliest+1;
@@ -51,12 +55,31 @@ while iter < tauLength
     vals = [];
     value_fun_next = value_funs{tEarliest+iter};
     idx_curr = grid.RealToIdx(z);
-    for i=1:dynSys.num_ctrls
-        u_i = dynSys.controls{i};
-        idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
-        likelyMask = likelyMasks(num2str(u_i));
-        val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
-        vals = [vals, val];
+    if extraArgs.interpolate
+        grid.SetData(value_fun_next);
+        for i=1:dynSys.num_ctrls
+            u_i = dynSys.controls{i};
+            likelyMask = likelyMasks(num2str(u_i));
+            if isnan(likelyMask(idx_curr{1}))
+                val = nan;
+            else
+                next_z = dynSys.dynamics(z, u_i);
+                val = grid.interpolate(next_z);
+            end
+            vals = [vals, val];
+        end
+    else
+        for i=1:dynSys.num_ctrls
+            u_i = dynSys.controls{i};
+            likelyMask = likelyMasks(num2str(u_i));
+            if isnan(likelyMask(idx_curr{1}))
+                val = nan;
+            else
+                idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
+                val = value_fun_next(idx{1});
+            end
+            vals = [vals, val];
+        end
     end
     if strcmp(uMode, "min")
         [~, ctrl_ind] = min(vals, [], 2);
@@ -68,7 +91,10 @@ while iter < tauLength
     
     % Apply the optimal control.
     ctrl = dynSys.controls{ctrl_ind};
-    z = grid.RealToCoords(dynSys.dynamics(z,ctrl));
+    z = dynSys.dynamics(z,ctrl);
+    if ~extraArgs.interpolate
+        z = grid.RealToCoords(z);
+    end
   
     % Record new point on nominal trajectory
     iter = iter + 1;

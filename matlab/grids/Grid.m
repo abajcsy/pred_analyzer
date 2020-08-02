@@ -104,7 +104,7 @@ classdef Grid < handle
         end
         
         % Generalize to n-dims, only implemented for n=3 currently.
-        function val = Interpolate(obj,state)
+        function val = interpolate(obj,state)
             coords = obj.RealToCoords(state);
             grid_coords = cell(1,2^3);
             alphas = cell(1,2^3);
