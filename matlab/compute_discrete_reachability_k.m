@@ -26,8 +26,8 @@ num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-uMode = "max"; % min or max
-uThresh = 2;%0.14; % 0.16;
+uMode = "min"; % min or max
+uThresh = 1;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -59,7 +59,7 @@ extraArgs.targets = initial_value_fun;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
-minWith = "none"; 
+minWith = "minVWithL"; 
 
 %% Optimal control params
 extraArgsCtrl.interpolate = false;

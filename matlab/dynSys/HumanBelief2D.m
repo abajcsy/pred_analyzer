@@ -33,8 +33,8 @@ classdef HumanBelief2D < handle
             % Return next state after applying control u to z. 
             % Note that no interpolation is done (should be handled by Grid class).
             znext = cell(size(z));
-            znext{1} = z{1} + obj.dt .* (obj.v .* cos(u));
-            znext{2} = z{2} + obj.dt .* (obj.v .* sin(u));
+            znext{1} = z{1} + obj.dt .* u(1);
+            znext{2} = z{2} + obj.dt .* u(2);
             znext{3} = obj.belief_update(u,z);
         end
         
@@ -49,7 +49,7 @@ classdef HumanBelief2D < handle
         function likelyMasks = getLikelyMasks(obj, z)
             likelyMasks = containers.Map;
             for i=1:obj.num_ctrls
-                u_i = obj.controls(i);
+                u_i = obj.controls{i};
                 
 %                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
 %                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
@@ -69,14 +69,14 @@ classdef HumanBelief2D < handle
         
         function pu = pugivenxtheta(obj,u,z,theta)
             % Return probability of control u given state x and model parameter theta.
-            x_next = z{1} + obj.dt .* (obj.v .* cos(u));
-            y_next = z{2} + obj.dt .* (obj.v .* sin(u));
+            x_next = z{1} + obj.dt .* u(1);
+            y_next = z{2} + obj.dt .* u(2);
             numerator = exp(-((x_next - theta(1)).^2 + (y_next - theta(2)).^2).^0.5);
             denominator = 0;
             for i=1:obj.num_ctrls
-                u_i = obj.controls(i);
-                x_next_i = z{1} + obj.dt .* (obj.v .* cos(u_i));
-                y_next_i = z{2} + obj.dt .* (obj.v .* sin(u_i));
+                u_i = obj.controls{i};
+                x_next_i = z{1} + obj.dt .* u_i(1);
+                y_next_i = z{2} + obj.dt .* u_i(2);
                 denominator = denominator + exp(-((x_next_i - theta(1)).^2 + (y_next_i - theta(2)).^2).^0.5);
             end
             pu = numerator ./ denominator;

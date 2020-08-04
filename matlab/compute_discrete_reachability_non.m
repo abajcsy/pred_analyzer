@@ -26,8 +26,8 @@ num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-uMode = "max"; % min or max
-uThresh = 0.14;%0.14; % 0.16;
+uMode = "min"; % min or max
+uThresh = 0.08;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -40,13 +40,14 @@ trueThetaIdx = 1;
 initial_state = {0, 0, 0.1};
 
 % MDP human.
-gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+% gdisc = (gmax - gmin) ./ (gnums - 1);
+% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Discrete control angle human. 
-% v = 1.0;
-% n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
+v = 1.0;
+n = 20;
+dt = 0.5;
+dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
 
 %% Pack problem parameters
 schemeData.grid = g;
@@ -60,7 +61,7 @@ extraArgs.targets = initial_value_fun;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
-minWith = "none"; 
+minWith = "minVWithL"; 
 
 %% Optimal control params
 extraArgsCtrl.interpolate = false;

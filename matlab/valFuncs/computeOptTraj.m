@@ -53,6 +53,7 @@ while iter < tauLength
 
     % Find the optimal control
     vals = [];
+    vals_t = [];
     value_fun_next = value_funs{tEarliest+iter};
     idx_curr = grid.RealToIdx(z);
     if extraArgs.interpolate
@@ -70,25 +71,36 @@ while iter < tauLength
         end
     else
         for i=1:dynSys.num_ctrls
+%             u_i = dynSys.controls{i};
+%             likelyMask = likelyMasks(num2str(u_i));
+%             if isnan(likelyMask(idx_curr{1}))
+%                 val = nan;
+%             else
+%                 idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
+%                 val = value_fun_next(idx{1});
+%             end
+%             vals = [vals, val];
             u_i = dynSys.controls{i};
             likelyMask = likelyMasks(num2str(u_i));
-            if isnan(likelyMask(idx_curr{1}))
-                val = nan;
-            else
-                idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
-                val = value_fun_next(idx{1});
-            end
-            vals = [vals, val];
+            l = likelyMask(idx_curr{1});
+            idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
+            val = value_fun_next(idx{1});
+            val_l = value_fun_next(idx{1}) * l;
+            vals = [vals, val_l];
+            vals_t = [vals_t, val];
         end
     end
+%     vals
+%     vals_t
+    
     if strcmp(uMode, "min")
-        [~, ctrl_ind] = min(vals, [], 2);
+        [optVal, ctrl_ind] = min(vals, [], 2);
     elseif strcmp(uMode, "max")
-        [~, ctrl_ind] = max(vals, [], 2);
+        [optVal, ctrl_ind] = max(vals, [], 2);
     else 
         error("Invalid uMode!");
     end
-    
+%     optVal
     % Apply the optimal control.
     ctrl = dynSys.controls{ctrl_ind};
     z = dynSys.dynamics(z,ctrl);

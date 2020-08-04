@@ -38,8 +38,6 @@ classdef Grid < handle
             obj.g = g;
         end
         
-        % TODO: Is the Euclidean distance metric better or the same as
-        % Manhattan on a grid?
         function coord = RealToCoords(obj,real)
             % Return coordinates from real value.
             [~, dims] = size(obj.gnums);
@@ -61,8 +59,7 @@ classdef Grid < handle
             parfor dim=1:dims
                 index{dim} = int32(((coords{dim} - obj.gmin(dim)) ./ obj.gdisc(dim)) + 1);
             end
-            % TODO: Turn idx into containing linear index. Loop through all
-            % elements? TRY parfor?
+            
             idx = cell(size(coords{1}));
             parfor ind=1:numel(idx)
                 sub = [];
@@ -96,7 +93,6 @@ classdef Grid < handle
         
         function SetDataAtReal(obj,real,val)
             % Set data at coordinates defined by real
-            % TODO: Finish this.
             idx = obj.CoordsToIdx(obj.RealToCoords(real));
             for data_ind=1:numel(real{1})
                 obj.data(idx{data_ind}) = val(data_ind);
