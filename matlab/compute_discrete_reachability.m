@@ -7,7 +7,7 @@ close all
 %% Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [20, 20, 20];
+gnums = [30, 30, 30];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
@@ -22,12 +22,12 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 15;
+num_timesteps = 30;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "max"; % min or max
-uThresh = 0.14;%0.14; % 0.16;
+uThresh = 0.125;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -60,7 +60,18 @@ extraArgs.targets = initial_value_fun;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
-minWith = "none"; 
+minWith = "minVWithL";
+
+%% Adding obstacles
+% tol = 0.1;
+% centerPgoal1 = 0.9;
+% xyoffset = 0.1;
+% center = [0; 0; centerPgoal1];
+% widths = [(gmax(1) - gmin(1)) - xyoffset; ...
+%           (gmax(2) - gmin(2)) - xyoffset; 
+%           tol];
+% obstacle_fun = shapeRectangleByCenter(g, center, widths);
+% extraArgs.obstacles = obstacle_fun;
 
 %% Optimal control params
 extraArgsCtrl.interpolate = false;

@@ -54,12 +54,6 @@ num_ctrls = dyn_sys.num_ctrls;
 num_timesteps = tau(end);
 extraOuts = [];
 
-%---Extract the information about obstacles--------------------------------
-if isfield(extraArgs, 'obstacles')
-    warning('obstacles not implemented yet!')
-    return;
-end
-
 %---Extract the information about targets----------------------------------
 % TO DO: allow targets to be time-varying
 
@@ -72,6 +66,13 @@ end
 
 if isfield(extraArgs, 'targets')
     targets = extraArgs.targets;
+end
+
+%---Extract the information about obstacles--------------------------------
+if isfield(extraArgs, 'obstacles')
+    obstacles = extraArgs.obstacles;
+else
+    obstacles = zeros(size(targets)) .* nan;
 end
 
 %---Stopping Conditions----------------------------------------------------
@@ -137,6 +138,8 @@ while tidx > 0
     else
         error("uMode not specified or not supported!")
     end
+    
+    value_fun = max(value_fun, obstacles);
 
     value_funs{tidx} = value_fun;
 
