@@ -90,6 +90,7 @@ while iter < tauLength
             vals_t = [vals_t, val];
         end
     end
+%     z
 %     vals
 %     vals_t
     
@@ -101,6 +102,7 @@ while iter < tauLength
         error("Invalid uMode!");
     end
 %     optVal
+%     ctrl_ind
     % Apply the optimal control.
     ctrl = dynSys.controls{ctrl_ind};
     z = dynSys.dynamics(z,ctrl);

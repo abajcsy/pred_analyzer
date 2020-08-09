@@ -138,5 +138,15 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         saveas(gcf, strcat(repo.path, '/imgs/', filename));
         fprintf("Saved figures!");
     end
+    
+    % Plot obstacles.
+    if isfield(extraPltArgs, 'existsObstacle') && extraPltArgs.existsObstacle
+        x_min = extraPltArgs.obs_center(1) - (extraPltArgs.obs_width(1)/2);
+        y_min = extraPltArgs.obs_center(2) - (extraPltArgs.obs_width(2)/2);
+        p_min = extraPltArgs.obs_center(3) - (extraPltArgs.obs_width(3)/2);
+        l = [extraPltArgs.obs_width(1) extraPltArgs.obs_width(2) extraPltArgs.obs_width(3)];
+        plotcube(l,[x_min y_min p_min],.8,[1 0 0]);
+    end
+    
     hold off
 end

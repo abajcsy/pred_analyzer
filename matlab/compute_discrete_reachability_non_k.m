@@ -7,7 +7,7 @@ close all
 %% Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [30, 30, 30];
+gnums = [20, 20, 20];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
@@ -22,12 +22,12 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "max"; % min or max
-uThresh = 0.12;%0.13; %0.14; % 0.16;
+uThresh = 6;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -37,16 +37,17 @@ thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 
 % Initial state and dynamical system setup
-initial_state = {-3.5, 2, 0.1};
+initial_state = {0, 0, 0.1};
 
 % MDP human.
-gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+% gdisc = (gmax - gmin) ./ (gnums - 1);
+% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Discrete control angle human. 
-% v = 1.0;
-% n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
+v = 1.0;
+n = 20;
+dt = 0.5;
+dyn_sys = HumanBelief2D_K(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
 
 %% Pack problem parameters
 schemeData.grid = g;
@@ -60,16 +61,7 @@ extraArgs.targets = initial_value_fun;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
-minWith = "minVWithL";
-
-%% Adding obstacles
-existsObstacle = false;
-% obs_center = [-1; 1; 0.5];
-% obs_width = [1; ...
-%           1; 
-%           1.0];
-% obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
-% extraArgs.obstacles = obstacle_fun;
+minWith = "minVWithL"; 
 
 %% Optimal control params
 extraArgsCtrl.interpolate = false;
@@ -93,12 +85,6 @@ if plot
     extraPltArgs.uThresh = uThresh;
     extraPltArgs.uMode = uMode;
     extraPltArgs.saveFigs = false;
-    if existsObstacle
-        extraPltArgs.existsObstacle = existsObstacle;
-        extraPltArgs.obs_center = obs_center;
-        extraPltArgs.obs_width = obs_width;
-        extraPltArgs.obstacles = obstacle_fun;
-    end
     
     % Plot the optimal traj
     plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...
