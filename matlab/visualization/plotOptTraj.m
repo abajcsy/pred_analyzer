@@ -35,7 +35,7 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         'markeredgecolor', color, 'markerfacecolor', color);
     
     % Add first timestamp.
-    txt = strcat('t=', num2str(traj_tau(1)), ', p=', num2str(xcurr(3)));
+    txt = strcat('t=', num2str(traj_tau(1)), ', b=', num2str(xcurr(3)));
     tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
     tp.Color = color;
     for t=2:length(traj_tau)
@@ -49,6 +49,10 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
         
+        txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
+        tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
+        tp.Color = color;
+        
         % ---- Debugging! ---- %
         % Shows the value function for the previous point.
         vg = createGrid(grid_min, grid_max, grid_nums);
@@ -57,11 +61,11 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         % ---- Debugging! ---- %
     end
     
-    xcurr = traj(1:3, end);
-    % add final info.
-    txt = strcat('t=', num2str(traj_tau(end)), ', p=', num2str(xcurr(3)));
-    tp = text(xcurr(1), xcurr(2)+finaloffset, xcurr(3)+0.1, txt);
-    tp.Color = color;
+%     xcurr = traj(1:3, end);
+%     % add final info.
+%     txt = strcat('t=', num2str(traj_tau(end)), ', b=', num2str(xcurr(3)));
+%     tp = text(xcurr(1), xcurr(2)+finaloffset, xcurr(3)+0.1, txt);
+%     tp.Color = color;
 
     % Plot GOAL 1.
     if strcmp(extraPltArgs.compType, 'conf_and_goal') || ...

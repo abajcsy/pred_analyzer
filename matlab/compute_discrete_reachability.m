@@ -22,12 +22,12 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 20;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "max"; % min or max
-uThresh = 0.12;%0.13; %0.14; % 0.16;
+uThresh = 0.13; %0.12;%0.13; %0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -37,7 +37,9 @@ thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 
 % Initial state and dynamical system setup
-initial_state = {-3.5, 2, 0.1};
+% initial_state = {-3.5, 2, 0.1};
+% initial_state = {0, 0, 0.1};
+initial_state = {-2, 0, 0.5};
 
 % MDP human.
 gdisc = (gmax - gmin) ./ (gnums - 1);
@@ -108,6 +110,10 @@ if plot
 %     visBRSVideo(g, value_funs, initial_state, tau);
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
+
+save('e2_b50_finer_grid_brt_max_uthresh013.mat', 'g', 'gmin', 'gmax', 'gnums', ...
+    'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
+    'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
 
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices
