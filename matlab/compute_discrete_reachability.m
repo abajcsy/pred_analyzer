@@ -119,6 +119,10 @@ if plot
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
 
+save('e2_b50_finer_grid_brt_max_uthresh013.mat', 'g', 'gmin', 'gmax', 'gnums', ...
+    'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
+    'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
+
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices
 function value_fun = construct_value_fun_fmm(x_ind, y_ind, b_ind, gmin, gmax, gnums)
