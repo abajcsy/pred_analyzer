@@ -46,7 +46,7 @@ obs_width = [1; ...
           1;];
       
 goal_val = 1;
-obs_val = -10;
+obs_val = -inf;
 
 goal_rad = 0.5;
 g_phys = createGrid([gmin(1), gmin(2)], [gmax(1), gmax(2)], [gnums(1), gnums(2)]);

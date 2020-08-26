@@ -67,8 +67,12 @@ classdef Grid < handle
                     sub = [sub index{dim}(ind)];
                 end
                 sub = num2cell(sub);
-                new_ind = sub2ind(size(obj.data), sub{:});
-                idx{ind} = new_ind;
+                try
+                    new_ind = sub2ind(size(obj.data), sub{:});
+                    idx{ind} = new_ind;
+                catch
+                    idx{ind} = nan;
+                end
             end
         end
         
@@ -77,7 +81,12 @@ classdef Grid < handle
             idx = obj.CoordsToIdx(obj.RealToCoords(real));
             data = zeros(size(real{1}));
             parfor data_ind=1:numel(real{1})
-                data(data_ind) = obj.data(idx{data_ind});
+                corr_ind = idx{data_ind};
+                if isnan(corr_ind)
+                    data(data_ind) = nan;
+                else
+                    data(data_ind) = obj.data(corr_ind);
+                end
             end
         end
         

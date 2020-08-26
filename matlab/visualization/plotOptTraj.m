@@ -49,9 +49,11 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
         
-        txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
-        tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
-        tp.Color = color;
+        if t == length(traj_tau)
+            txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
+            tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
+            tp.Color = color;
+        end
         
         % ---- Debugging! ---- %
         % Shows the value function for the previous point.

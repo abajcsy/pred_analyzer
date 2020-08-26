@@ -22,7 +22,7 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 6;
+num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -44,8 +44,9 @@ obs_width = [1; ...
           1;];
       
 goal_val = 1;
-% obs_val = -0;
 obs_val = -inf;
+
+grid = Grid([gmin(1), gmin(2), gmin(3)], [gmax(1), gmax(2), gmax(3)], [gnums(1), gnums(2), gnums(3)]);
 
 goal_rad = 0.5;
 g_phys = createGrid([gmin(1), gmin(2)], [gmax(1), gmax(2)], [gnums(1), gnums(2)]);
@@ -65,66 +66,65 @@ initial_state = {0, 0, 0.1};
 gdisc = (gmax - gmin) ./ (gnums - 1);
 dyn_sys = MDPHumanBelief2D_Q(initial_state, v_inits, trueThetaIdx, uThresh, gdisc, gamma, eps);
 
-% Discrete control angle human. 
-% v = 1.0;
-% n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
-
-%% Pack problem parameters
-schemeData.grid = g;
-schemeData.dynSys = dyn_sys;
-schemeData.uMode = uMode;
-
-%% Plot obstacles
 existsObstacle = true;
-plotObstacle = true;
 obs_center = [-1; 1; 0.5];
 obs_width = [1; ...
           1; 
           1.0];
 obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
 
-%% Add obstacles to reachability
-if existsObstacle
-    extraArgs.obstacles = obstacle_fun;
+%% Compute greedy trajectory
+grid_vals = true;
+
+if grid_vals
+    state = grid.RealToCoords(initial_state);
+else
+    state = initial_state;
 end
 
-
-%% Pack value function params
-if existsObstacle
-    initial_value_fun = max(initial_value_fun,obstacle_fun);
+traj = nan(g.dim, 20);
+traj_tau = [0];
+traj(:,1) = cell2mat(state);
+j = 1;
+while state{3} < 0.8
+    j = j + 1;
+    belief_vals = zeros(1,numel(dyn_sys.controls));
+    for i=1:numel(dyn_sys.controls)
+        u_i = dyn_sys.controls{i};
+        next_state_i = dyn_sys.dynamics(state,u_i);
+        if grid_vals
+            next_state_i = grid.RealToCoords(next_state_i);
+        end
+        prob = dyn_sys.pugivenxtheta(u_i,state,dyn_sys.q_funs{trueThetaIdx});
+        likely = nan;
+        if prob >= uThresh
+            likely = 1;
+        end
+        belief_vals(i) = next_state_i{3} * likely;
+    end
+    [opt_belief,IX] = max(belief_vals,[],2);
+    state = dyn_sys.dynamics(state,dyn_sys.controls{IX});
+    if grid_vals
+        state = grid.RealToCoords(state);
+    end
+    traj(:,j) = cell2mat(state);
+    traj_tau = [traj_tau j-1];
 end
 
-extraArgs.targets = initial_value_fun;
-% extraArgs.stopInit = initial_state;
+traj = traj(:,1:j);
 
-% 'none' or 'set' for backward reachable set (BRS)
-% 'minVWithL' for backward reachable tube (BRT)
-minWith = "minVWithL"; 
+value_funs = cell(1, j);
+for i=1:j
+    value_funs{i} = initial_value_fun;
+end
 
-%% Optimal control params
-extraArgsCtrl.interpolate = false;
-
-%% Solve for the discrete-time value function!
-[value_funs, tau, extraOuts] = ...
-    DiscTimeHJIPDE_solve(initial_value_fun, tau, schemeData, minWith, extraArgs);
-
-%% Find and plot optimal control sequence (if reachable by computed BRS)
-[traj, traj_tau] = computeOptTraj(initial_state, g, value_funs, tau, dyn_sys, uMode, extraArgsCtrl);
-
-%% Plot optimal trajectory and value functions
-% if isfield(extraOuts, 'stoptau')
-%     start_idx = extraOuts.stoptau;
-% else
-%     start_idx = 1;
-% end
 if plot
     compType = 'conf';
     extraPltArgs.compType = compType;
     extraPltArgs.uThresh = uThresh;
     extraPltArgs.uMode = uMode;
     extraPltArgs.saveFigs = false;
-    if plotObstacle 
+    if existsObstacle 
         extraPltArgs.existsObstacle = existsObstacle;
         extraPltArgs.obs_center = obs_center;
         extraPltArgs.obs_width = obs_width;
@@ -134,10 +134,6 @@ if plot
     % Plot the optimal traj
     plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...
         gmin, gmax, gnums, 0, value_funs, extraPltArgs);
-    
-    % Plot the BRS.
-%     visBRSVideo(g, value_funs, initial_state, tau);
-%     visBRSSubplots(g, value_funs, initial_state, tau);
 end
 
 %% Helper functions

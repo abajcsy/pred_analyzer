@@ -7,7 +7,7 @@ close all
 %% Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [30, 30, 30];
+gnums = [20, 20, 20];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
@@ -18,23 +18,16 @@ center = [0; 0; centerPgoal1];
 widths = [(gmax(1) - gmin(1)) - xyoffset; ...
           (gmax(2) - gmin(2)) - xyoffset; 
           tol];
-% tol = 0.2;
-% centerPgoal1 = 0.1;
-% xyoffset = 0.1;
-% center = [-2; 2; centerPgoal1];
-% widths = [1; ...
-%           1; 
-%           tol];
 initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 25;
+num_timesteps = 10;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "min"; % min or max
-uThresh = 0.00;%0.13; %0.14; % 0.16;
+uThresh = 0.15;%0.15;%0.13; %0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -42,13 +35,39 @@ plot = true;        % Visualize the BRS and the optimal trajectory?
 %% Joint Dynamics Setup.
 thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
+gamma = 0.9;
+eps = 0.01;
+
+% Obstacles for Q-function
+obs_val = -inf;
+obs_center = [-1; 1];
+obs_width = [1; ...
+          1;];
+
+goal_rad = 0.5;
+g_phys = createGrid([gmin(1), gmin(2)], [gmax(1), gmax(2)], [gnums(1), gnums(2)]);
+
+% gmin,gmax,gnums,g,obs_min,obs_max,obs_val,thetas
+%% Pack Reward Info
+reward_info.gmin = [gmin(1), gmin(2)];
+reward_info.gmax = [gmax(1), gmax(2)];
+reward_info.gnums = [gnums(1), gnums(2)];
+reward_info.g = g_phys.xs;
+reward_info.obs_min = [obs_center(1) - 0.5*obs_width(1); obs_center(2) - 0.5*obs_width(2)];
+reward_info.obs_max = [obs_center(1) + 0.5*obs_width(1); obs_center(2) + 0.5*obs_width(2)];
+reward_info.obs_val = obs_val;
+reward_info.thetas = cell(1,numel(thetas));
+for i=1:numel(thetas)
+    reward_info.thetas{i} = {thetas{i}(1), thetas{i}(2)};
+end
+
 
 % Initial state and dynamical system setup
 initial_state = {0, 0, 0.1};
 
 % MDP human.
 gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+dyn_sys = MDPHumanBelief2D_R(initial_state, reward_info, trueThetaIdx, uThresh, gdisc, gamma, eps);
 
 % Discrete control angle human. 
 % v = 1.0;
@@ -60,14 +79,20 @@ schemeData.grid = g;
 schemeData.dynSys = dyn_sys;
 schemeData.uMode = uMode;
 
-%% Adding obstacles
-existsObstacle = false;
-% obs_center = [-1; 1; 0.5];
-% obs_width = [1; ...
-%           1; 
-%           1.0];
-% obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
-% extraArgs.obstacles = obstacle_fun;
+%% Plot obstacles
+existsObstacle = true;
+plotObstacle = true;
+obs_center = [-1; 1; 0.5];
+obs_width = [1; ...
+          1; 
+          1.0];
+obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
+
+%% Add obstacles to reachability
+if existsObstacle
+    extraArgs.obstacles = obstacle_fun;
+end
+
 
 %% Pack value function params
 if existsObstacle
@@ -103,7 +128,7 @@ if plot
     extraPltArgs.uThresh = uThresh;
     extraPltArgs.uMode = uMode;
     extraPltArgs.saveFigs = false;
-    if existsObstacle
+    if plotObstacle 
         extraPltArgs.existsObstacle = existsObstacle;
         extraPltArgs.obs_center = obs_center;
         extraPltArgs.obs_width = obs_width;
@@ -119,10 +144,6 @@ if plot
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
 
-save('e2_b50_finer_grid_brt_max_uthresh013.mat', 'g', 'gmin', 'gmax', 'gnums', ...
-    'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
-    'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
-
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices
 function value_fun = construct_value_fun_fmm(x_ind, y_ind, b_ind, gmin, gmax, gnums)
@@ -130,4 +151,20 @@ function value_fun = construct_value_fun_fmm(x_ind, y_ind, b_ind, gmin, gmax, gn
     target_set = ones(size(grid.xs{1}));
     target_set(x_ind(1):x_ind(2),y_ind(1):y_ind(2),b_ind(1):b_ind(2)) = -1;
     value_fun = compute_fmm_map(grid, target_set);
+end
+
+% TODO: Change goal_fun to circle (using shapeSphere).
+function v_data = compute_v_data(g, goal_value, goal_center, goal_rad, obs_value, obs_center, obs_width)
+    goal_fun = shapeRectangleByCenter(g, ...
+        [goal_center(1); goal_center(2)], [goal_rad; goal_rad]);
+    
+    goal_fun(goal_fun>=0) = 0;
+    goal_fun(goal_fun<0) = goal_value;
+    
+    
+    obs_fun = shapeRectangleByCenter(g, obs_center, obs_width);
+    obs_fun(obs_fun<0) = obs_value;
+    obs_fun(obs_fun>=0) = 0;
+    
+    v_data = goal_fun + obs_fun;
 end

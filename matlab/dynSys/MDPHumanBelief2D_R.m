@@ -1,4 +1,4 @@
-classdef MDPHumanBelief2D_Q < handle
+classdef MDPHumanBelief2D_R < handle
     % Human belief 1D class
     
     properties
@@ -10,13 +10,14 @@ classdef MDPHumanBelief2D_Q < handle
         trueThetaIdx % true human intent parameter.
         v_funs % Value functions
         q_funs % Q-functions
+        reward_info % Information for reward function construction
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
     end
     
     methods
-        function obj = MDPHumanBelief2D_Q(z0, v_inits, trueThetaIdx, ...
+        function obj = MDPHumanBelief2D_R(z0, reward_info, trueThetaIdx, ...
                 uThresh, gdisc, gamma, eps)
             % Construct an instance of Grid.
             obj.controls = obj.generate_controls_mdp(gdisc);
@@ -24,10 +25,11 @@ classdef MDPHumanBelief2D_Q < handle
             obj.z0 = z0;
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
-            obj.v_funs = cell(1,numel(v_inits));
-            obj.q_funs = cell(1,numel(v_inits));
-            for i=1:numel(v_inits)
-                [v_f, q_f] = obj.compute_q_fun(v_inits{i}, gamma, eps);
+            obj.v_funs = cell(1,numel(reward_info.thetas));
+            obj.q_funs = cell(1,numel(reward_info.thetas));
+            obj.reward_info = reward_info;
+            for i=1:numel(reward_info.thetas)
+                [v_f, q_f] = obj.compute_q_fun(i, gamma, eps);
                 obj.v_funs{i} = v_f;
                 obj.q_funs{i} = q_f;
             end
@@ -100,30 +102,54 @@ classdef MDPHumanBelief2D_Q < handle
             end
         end
         
-        function [v_grid, q_fun] = compute_q_fun(obj, v_init, gamma, eps)
+        function [v_grid, q_fun] = compute_q_fun(obj, idx, gamma, eps)
             % Compute reward function
+            % reward_info: gmin,gmax,gnums,g,obs_min,obs_max,obs_val
             r_fun = containers.Map;
-            curr_state = v_init.g;
-            g_min = v_init.gmin;
-            g_max = v_init.gmax;
+            curr_state = obj.reward_info.g;
+            g_min = obj.reward_info.gmin;
+            g_max = obj.reward_info.gmax;
+            g_nums = obj.reward_info.gnums;
+            obs_min = obj.reward_info.obs_min;
+            obs_max = obj.reward_info.obs_max;
+            grid = Grid(g_min, g_max, g_nums);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 next_state = obj.physical_dynamics(curr_state, u_i);
-                mask = (next_state{1} < g_min(1)) | (next_state{2} < g_min(2)) | ...
+                
+                % -inf if moving outside grid
+                penalty_outside = (next_state{1} < g_min(1)) | (next_state{2} < g_min(2)) | ...
                     (next_state{1} > g_max(1)) | (next_state{2} > g_max(2));
-%                 mask(mask==1) = -inf;
-                r_i = v_init.GetDataAtReal(next_state); % .* mask;
-                r_i(mask==1) = -inf;
+                penalty_outside(penalty_outside==1) = -inf;
+                
+                % -inf if moving into obstacle
+                penalty_obstacle = (next_state{1} >= obs_min(1)) | (next_state{2} >= obs_min(2)) | ...
+                    (next_state{1} <= obs_max(1)) | (next_state{2} <= obs_max(2));
+                penalty_obstacle(penalty_obstacle==1) = obj.reward_info.obs_val;
+                
+                % action costs
+                if u_i(1) == 0 && u_i(2) == 0
+                    % Stop
+                    grid.SetData(ones(size(next_state{1})) .* obj.reward_info.obs_val);
+                    grid.SetDataAtReal(obj.reward_info.thetas{idx},0);
+                    action_cost = grid.data;
+                elseif u_i(1) ~= 0 && u_i(2) ~= 0
+                    action_cost = ones(size(next_state{1})) .* -sqrt(2);
+                else
+                    action_cost = ones(size(next_state{1})) .* -1;
+                end
+                
+                r_i = action_cost + penalty_obstacle + penalty_outside;
                 r_fun(num2str(u_i)) = r_i;
             end
             
             % Compute value function
-            v_fun_prev = rand(v_init.gnums);
+            v_fun_prev = rand(obj.reward_info.gnums);
             j = 0;
-            v_grid = Grid(v_init.gmin, v_init.gmax, v_init.gnums);
+            v_grid = Grid(g_min, g_max, g_nums);
             while true
                 v_grid.SetData(v_fun_prev);
-                possible_vals = zeros([v_init.gnums, numel(obj.controls)]);
+                possible_vals = zeros([g_nums, numel(obj.controls)]);
                 parfor i=1:numel(obj.controls)
                     u_i = obj.controls{i};
                     next_state = obj.physical_dynamics(curr_state, u_i);
@@ -152,7 +178,7 @@ classdef MDPHumanBelief2D_Q < handle
                 next_state = obj.physical_dynamics(curr_state, u_i);
                 v_next = v_grid.GetDataAtReal(next_state);
                 q_data = r_fun(num2str(u_i)) + (gamma .* v_next);
-                q_i = Grid(v_init.gmin, v_init.gmax, v_init.gnums);
+                q_i = Grid(g_min, g_max, g_nums);
                 q_i.SetData(q_data);
                 q_fun(num2str(u_i)) = q_i;
                 q_l(:,:,i) = q_i.data;
@@ -165,7 +191,7 @@ classdef MDPHumanBelief2D_Q < handle
                 u_i = obj.controls{i};
                 q_i = q_fun(num2str(u_i)).data;
                 q_i(isInvalid) = 0;
-                q = Grid(v_init.gmin, v_init.gmax, v_init.gnums);
+                q = Grid(g_min, g_max, g_nums);
                 q.SetData(q_i);
                 q_fun(num2str(u_i)) = q;
             end

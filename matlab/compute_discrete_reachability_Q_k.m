@@ -11,7 +11,7 @@ gnums = [20, 20, 20];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
-tol = 0.1;
+tol = 0.2;
 centerPgoal1 = 0.9;
 xyoffset = 0.1;
 center = [0; 0; centerPgoal1];
@@ -22,7 +22,7 @@ initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 15;
+num_timesteps = 5;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -44,7 +44,7 @@ obs_width = [1; ...
           1;];
       
 goal_val = 1;
-obs_val = -10;
+obs_val = -inf;
 
 goal_rad = 0.5;
 g_phys = createGrid([gmin(1), gmin(2)], [gmax(1), gmax(2)], [gnums(1), gnums(2)]);
@@ -137,6 +137,8 @@ if plot
 %     visBRSVideo(g, value_funs, initial_state, tau);
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
+
+vals_t = [0.3263, 0.4842, -0.0947, 0.2211, -0.0947, -0.0947, 0.1158, 0.4842, -0.0421];
 
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices

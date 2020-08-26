@@ -127,14 +127,20 @@ classdef MDPHumanBelief2D_Q_K < handle
             end
         end
         
-        function [v_fun, q_fun] = compute_q_fun(obj, v_init, gamma, eps)
+        function [v_grid, q_fun] = compute_q_fun(obj, v_init, gamma, eps)
             % Compute reward function
             r_fun = containers.Map;
             curr_state = v_init.g;
+            g_min = v_init.gmin;
+            g_max = v_init.gmax;
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 next_state = obj.physical_dynamics(curr_state, u_i);
-                r_i = v_init.GetDataAtReal(next_state);
+                mask = (next_state{1} < g_min(1)) | (next_state{2} < g_min(2)) | ...
+                    (next_state{1} > g_max(1)) | (next_state{2} > g_max(2));
+                mask(mask==0) = -inf;
+%                 mask = 1;
+                r_i = v_init.GetDataAtReal(next_state) .* mask;
                 r_fun(num2str(u_i)) = r_i;
             end
             
@@ -154,18 +160,26 @@ classdef MDPHumanBelief2D_Q_K < handle
                 v_fun = max(possible_vals, [], 3);
                 
                 % \ell_\infty stopping condition
-                if max(abs(v_fun - v_fun_prev)) < eps
+                v_delta = v_fun - v_fun_prev;
+%                 v_delta(isnan(v_delta)) = 0;
+                max_dev = max(abs(v_delta),[],'all');
+                if max_dev < eps
                     break
                 else
                     v_fun_prev = v_fun;
                 end
                 j = j + 1;
+%                 if j > 200
+%                     j
+%                     max_dev
+%                     j
+%                 end
             end
             v_grid.SetData(v_fun);
-%             j
             
             % Compute Q-function
             q_fun = containers.Map;
+            q_l = zeros([size(v_fun), numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 next_state = obj.physical_dynamics(curr_state, u_i);
@@ -174,6 +188,19 @@ classdef MDPHumanBelief2D_Q_K < handle
                 q_i = Grid(v_init.gmin, v_init.gmax, v_init.gnums);
                 q_i.SetData(q_data);
                 q_fun(num2str(u_i)) = q_i;
+                q_l(:,:,i) = q_i.data;
+            end
+            
+            % Make invalid states have Q-value of zero.
+            maxQ = max(q_l, [], 3);
+            isInvalid = (maxQ == -inf);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                q_i(isInvalid) = 0;
+                q = Grid(v_init.gmin, v_init.gmax, v_init.gnums);
+                q.SetData(q_i);
+                q_fun(num2str(u_i)) = q;
             end
         end
     end

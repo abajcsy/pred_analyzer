@@ -84,8 +84,13 @@ while iter < tauLength
             likelyMask = likelyMasks(num2str(u_i));
             l = likelyMask(idx_curr{1});
             idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
-            val = value_fun_next(idx{1});
-            val_l = value_fun_next(idx{1}) * l;
+            if isnan(idx{1})
+                val = nan;
+                val_l = nan;
+            else
+                val = value_fun_next(idx{1});
+                val_l = value_fun_next(idx{1}) * l;
+            end
             vals = [vals, val_l];
             vals_t = [vals_t, val];
         end
@@ -93,7 +98,7 @@ while iter < tauLength
 %     z
 %     vals
 %     vals_t
-    
+
     if strcmp(uMode, "min")
         [optVal, ctrl_ind] = min(vals, [], 2);
     elseif strcmp(uMode, "max")
