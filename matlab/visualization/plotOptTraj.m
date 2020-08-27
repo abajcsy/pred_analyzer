@@ -16,11 +16,11 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     if trueGoalIdx == 1
         endColor = endColorRed;
         finaloffset = -0.3;
-        initoffset = 0.3;
+        initoffset = 0.1;
     else
         endColor = endColorBlue;
         finaloffset = 0.3;
-        initoffset = -0.3;
+        initoffset = -0.1;
     end
     
     r = linspace(startColor(1), endColor(1), length(traj_tau));
@@ -49,11 +49,11 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
         
-        if t == length(traj_tau)
+%         if t == length(traj_tau)
             txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
             tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
             tp.Color = color;
-        end
+%         end
         
         % ---- Debugging! ---- %
         % Shows the value function for the previous point.
@@ -124,10 +124,11 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     ylabel('y');
     zlabel('P(g = g1)');
     set(gcf,'Position',[100 100 500 500]);
+    set(gcf,'color','w');
     
-    set(gca,'xtick',linspace(grid_min(1),grid_max(1),grid_nums(1)));
-    set(gca,'ytick',linspace(grid_min(2),grid_max(2),grid_nums(2)));
-    set(gca,'ztick',linspace(grid_min(3),grid_max(3),grid_nums(3)));
+%     set(gca,'xtick',linspace(grid_min(1),grid_max(1),grid_nums(1)));
+%     set(gca,'ytick',linspace(grid_min(2),grid_max(2),grid_nums(2)));
+%     set(gca,'ztick',linspace(grid_min(3),grid_max(3),grid_nums(3)));
     
     % Saving functionality.
     if extraPltArgs.saveFigs

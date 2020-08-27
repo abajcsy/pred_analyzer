@@ -101,6 +101,10 @@ while iter < tauLength
 
     if strcmp(uMode, "min")
         [optVal, ctrl_ind] = min(vals, [], 2);
+%         all_ctrl_inds = find(vals == optVal);
+%         if sum(all_ctrl_inds == 6) > 0
+%             ctrl_ind = 6;
+%         end
     elseif strcmp(uMode, "max")
         [optVal, ctrl_ind] = max(vals, [], 2);
     else 

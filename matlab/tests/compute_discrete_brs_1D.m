@@ -29,7 +29,7 @@ extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 
-z0 = [0, 0.7];
+z0 = [0, 0.5];
 dyn_sys = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
 
 % Target Set Setup
@@ -87,6 +87,12 @@ toc
 
 % Plot valued functions
 if plot
+    videoFilename = 'brs_1D.avi';
+    vout = VideoWriter(videoFilename,'Motion JPEG AVI');
+    vout.Quality = 100;
+    vout.FrameRate = 5;
+    vout.open;
+
     figure(1);
     g = compute_grid.get_grid();
     for i=num_timesteps:-1:1
@@ -133,10 +139,15 @@ if plot
         hold off
         pause(0.5);
         
+        % write video!
+        current_frame = getframe(gcf); %gca does just the plot
+        writeVideo(vout,current_frame);
+        
         if i ~= 1
             delete(s);
         end
     end
+    vout.close;
 end
 
 % [ctrl_seq, reached, time] = ...
