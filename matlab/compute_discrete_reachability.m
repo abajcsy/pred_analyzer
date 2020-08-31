@@ -1,133 +1,72 @@
 %% File to compute reachable sets and optimal control via discrete-time HJ
-
 clear all
 clf
 close all
 
-%% Grid setup
-gmin = [-4, -4, 0];
-gmax = [4, 4, 1];
-gnums = [30, 30, 30];
-g = createGrid(gmin, gmax, gnums);
+%% Load all the parameters for this computation!
+%  See possible configuration files and create new ones in /matlab/config/
+params = mdpHuman3DSimpleEnv();
+% params = mdpHuman3DDrivingEnv();
+% params = carHuman4DDrivingEnv();
 
-%% Target Set Setup
-tol = 0.2;
-centerPgoal1 = 0.9;
-xyoffset = 0.1;
-center = [0; 0; centerPgoal1];
-widths = [(gmax(1) - gmin(1)) - xyoffset; ...
-          (gmax(2) - gmin(2)) - xyoffset; 
-          tol];
-% tol = 0.2;
-% centerPgoal1 = 0.1;
-% xyoffset = 0.1;
-% center = [-2; 2; centerPgoal1];
-% widths = [1; ...
-%           1; 
-%           tol];
-initial_value_fun = shapeRectangleByCenter(g, center, widths);
+%% Sanity check -- Plot the opt control policies?
+% params.dyn_sys.plot_opt_policy(1);
+% params.dyn_sys.plot_opt_policy(2);
 
-%% Time vector
-t0 = 1;
-num_timesteps = 25;
-tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
-
-%% Problem Setup
-uMode = "min"; % min or max
-uThresh = 0.00; %0.13; %0.14; % 0.16;
-
-%% Plotting?
-plot = true;        % Visualize the BRS and the optimal trajectory?
-
-%% Joint Dynamics Setup.
-thetas = {[-2, 2], [2, 2]};
-trueThetaIdx = 1;
-
-% Initial state and dynamical system setup
-initial_state = {-2,0,0.5}; %{0, 0, 0.1};
-
-% MDP human.
-gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
-
-% Discrete control angle human. 
-% v = 1.0;
-% n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
-
-%% Pack problem parameters
-schemeData.grid = g;
-schemeData.dynSys = dyn_sys;
-schemeData.uMode = uMode;
-
-%% Adding obstacles
-existsObstacle = false;
-% obs_center = [-1; 1; 0.5];
-% obs_width = [1; ...
-%           1; 
-%           1.0];
-% obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
-% extraArgs.obstacles = obstacle_fun;
-
-%% Pack value function params
-if existsObstacle
-    initial_value_fun = max(initial_value_fun,obstacle_fun);
-end
-
-extraArgs.targets = initial_value_fun;
-% extraArgs.stopInit = initial_state;
-
-% 'none' or 'set' for backward reachable set (BRS)
-% 'minVWithL' for backward reachable tube (BRT)
-minWith = "minVWithL"; 
-
-%% Optimal control params
-extraArgsCtrl.interpolate = false;
+%% Plot optimal control policy starting from initial condition.
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
 
 %% Solve for the discrete-time value function!
-[value_funs, tau, extraOuts] = ...
-    DiscTimeHJIPDE_solve(initial_value_fun, tau, schemeData, minWith, extraArgs);
+[value_funs, tauOut, extraOuts] = ...
+    DiscTimeHJIPDE_solve(params.initial_value_fun, ...
+                         params.tau, ...
+                         params.schemeData, ...
+                         params.minWith, ...
+                         params.extraArgs);
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
-[traj, traj_tau] = computeOptTraj(initial_state, g, value_funs, tau, dyn_sys, uMode, extraArgsCtrl);
+[traj, traj_tau] = computeOptTraj(params.initial_state, ....
+                                  params.g, ...
+                                  value_funs, ...
+                                  tauOut, ...
+                                  params.dyn_sys, ...
+                                  params.uMode, ...
+                                  params.extraArgsCtrl);
 
 %% Plot optimal trajectory and value functions
-% if isfield(extraOuts, 'stoptau')
-%     start_idx = extraOuts.stoptau;
-% else
-%     start_idx = 1;
-% end
-if plot
+if params.plot
     compType = 'conf';
     extraPltArgs.compType = compType;
-    extraPltArgs.uThresh = uThresh;
-    extraPltArgs.uMode = uMode;
+    extraPltArgs.uThresh = params.uThresh;
+    extraPltArgs.uMode = params.uMode;
     extraPltArgs.saveFigs = false;
-    if existsObstacle
-        extraPltArgs.existsObstacle = existsObstacle;
-        extraPltArgs.obs_center = obs_center;
-        extraPltArgs.obs_width = obs_width;
-        extraPltArgs.obstacles = obstacle_fun;
+    extraPltArgs.bdims = params.bdims;
+    if isfield(params.reward_info, 'obstacles')
+        extraPltArgs.obstacles = params.reward_info.obstacles;
     end
+    goalSetRad = 0;
+    
+    % IF USING THE MDP HUMAN:
+    %   Convert mdp timesteps to real time.
+    traj_tau_real = (traj_tau - ones(size(traj_tau)))*params.dt;
     
     % Plot the optimal traj
-    plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...
-        gmin, gmax, gnums, 0, value_funs, extraPltArgs);
+    plotOptTraj(traj, traj_tau_real, ...
+                params.thetas, params.trueThetaIdx, ...
+                params.gmin, params.gmax, params.gnums, ...
+                goalSetRad, extraPltArgs);
     
     % Plot the BRS.
-%     visBRSVideo(g, value_funs, initial_state, tau);
+    visBRSVideo(params.g, ...
+                value_funs, ...
+                params.initial_state, ...
+                tauOut, ...
+                extraOuts.stoptau, ...
+                params.dt);
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
 
-save(strcat('e2_b50_finer_grid_brt_',uMode,'_uthresh',num2str(uThresh),'.mat'), 'g', 'gmin', 'gmax', 'gnums', ...
-    'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
-    'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
-
-%% Helper functions
-% TODO: Make x_ind, b_ind depend on real values not indices
-function value_fun = construct_value_fun_fmm(x_ind, y_ind, b_ind, gmin, gmax, gnums)
-    grid = createGrid(gmin, gmax, gnums);
-    target_set = ones(size(grid.xs{1}));
-    target_set(x_ind(1):x_ind(2),y_ind(1):y_ind(2),b_ind(1):b_ind(2)) = -1;
-    value_fun = compute_fmm_map(grid, target_set);
-end
+% save(strcat('e2_b50_finer_grid_brt_',uMode,'_uthresh',num2str(uThresh),'.mat'), 'g', 'gmin', 'gmax', 'gnums', ...
+%     'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
+%     'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');

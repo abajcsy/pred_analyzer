@@ -11,20 +11,23 @@ gnums = [20, 20, 20];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
-center = [-2; 2; 0.5];
-widths = [1; ...
-          1; 
-          1];
+tol = 0.1;
+centerPgoal1 = 0.9;
+xyoffset = 0.1;
+center = [0; 0; centerPgoal1];
+widths = [(gmax(1) - gmin(1)) - xyoffset; ...
+          (gmax(2) - gmin(2)) - xyoffset; 
+          tol];
 initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 50;
+num_timesteps = 15;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "max"; % min or max
-uThresh = 2;%0.14; % 0.16;
+uThresh = 6;%0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -37,38 +40,23 @@ trueThetaIdx = 1;
 initial_state = {0, 0, 0.1};
 
 % MDP human.
-gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D_K(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+% gdisc = (gmax - gmin) ./ (gnums - 1);
+% dyn_sys = HumanBelief3DEuclid(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Discrete control angle human. 
-% v = 1.0;
-% n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
+v = 1.0;
+n = 20;
+dt = 0.5;
+dyn_sys = HumanBelief3DEuclid_K(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
 
 %% Pack problem parameters
 schemeData.grid = g;
 schemeData.dynSys = dyn_sys;
 schemeData.uMode = uMode;
 
-%% Add obstacle
-existsObstacle = true;
-plotObstacle = false;
-tol = 0.2;
-centerPgoal1 = 0.9;
-xyoffset = 0.2;
-obs_center = [0; 0; centerPgoal1];
-obs_width = [(gmax(1) - gmin(1)) - xyoffset; ...
-          (gmax(2) - gmin(2)) - xyoffset; 
-          tol];
-obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
-extraArgs.obstacles = obstacle_fun;
-
 %% Pack value function params
-if existsObstacle
-    initial_value_fun = max(initial_value_fun,obstacle_fun);
-end
-
 extraArgs.targets = initial_value_fun;
+% TODO: Stopping at initial condition leads to plotting issues.
 % extraArgs.stopInit = initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
@@ -97,12 +85,6 @@ if plot
     extraPltArgs.uThresh = uThresh;
     extraPltArgs.uMode = uMode;
     extraPltArgs.saveFigs = false;
-    if existsObstacle && plotObstacle
-        extraPltArgs.existsObstacle = existsObstacle;
-        extraPltArgs.obs_center = obs_center;
-        extraPltArgs.obs_width = obs_width;
-        extraPltArgs.obstacles = obstacle_fun;
-    end
     
     % Plot the optimal traj
     plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...

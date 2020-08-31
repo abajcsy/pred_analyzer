@@ -28,10 +28,10 @@ classdef MDPHumanBelief2D_R < handle
             obj.v_funs = cell(1,numel(reward_info.thetas));
             obj.q_funs = cell(1,numel(reward_info.thetas));
             obj.reward_info = reward_info;
-            for i=1:numel(reward_info.thetas)
-                [v_f, q_f] = obj.compute_q_fun(i, gamma, eps);
-                obj.v_funs{i} = v_f;
-                obj.q_funs{i} = q_f;
+            for th_idx=1:numel(reward_info.thetas)
+                [v_f, q_f] = obj.compute_q_fun(th_idx, gamma, eps);
+                obj.v_funs{th_idx} = v_f;
+                obj.q_funs{th_idx} = q_f;
             end
         end
         
@@ -102,7 +102,7 @@ classdef MDPHumanBelief2D_R < handle
             end
         end
         
-        function [v_grid, q_fun] = compute_q_fun(obj, idx, gamma, eps)
+        function [v_grid, q_fun] = compute_q_fun(obj, true_theta_idx, gamma, eps)
             % Compute reward function
             % reward_info: gmin,gmax,gnums,g,obs_min,obs_max,obs_val
             r_fun = containers.Map;
@@ -131,7 +131,7 @@ classdef MDPHumanBelief2D_R < handle
                 if u_i(1) == 0 && u_i(2) == 0
                     % Stop
                     grid.SetData(ones(size(next_state{1})) .* obj.reward_info.obs_val);
-                    grid.SetDataAtReal(obj.reward_info.thetas{idx},0);
+                    grid.SetDataAtReal(obj.reward_info.thetas{true_theta_idx},0);
                     action_cost = grid.data;
                 elseif u_i(1) ~= 0 && u_i(2) ~= 0
                     action_cost = ones(size(next_state{1})) .* -sqrt(2);
@@ -195,6 +195,34 @@ classdef MDPHumanBelief2D_R < handle
                 q.SetData(q_i);
                 q_fun(num2str(u_i)) = q;
             end
+            
+            % --------- DEBUGGING -------- %
+%             controls_text = {'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'};
+%             for i=1:obj.num_ctrls
+%                 u_i = obj.controls{i};
+%                 q_i = q_fun(num2str(u_i)).data;
+%                 figure(i)
+%                 hold on
+%                 s = surf(obj.reward_info.g{1}, obj.reward_info.g{2}, q_i);
+% %                 x = obj.reward_info.g{1}(:,1)';
+% %                 y = obj.reward_info.g{2}(1,:);
+% %                 imagesc(x, y, q_i);
+%                 title(strcat('Q(x,u=',controls_text{i},')'));
+%                 scatter3(obj.reward_info.thetas{true_theta_idx}{1}, ...
+%                         obj.reward_info.thetas{true_theta_idx}{2}, ...
+%                         10, ...
+%                         'r', 'filled');
+%                 pos = [obj.reward_info.obs_min(1), ...
+%                         obj.reward_info.obs_min(2), ...
+%                         obj.reward_info.obs_max(1)-obj.reward_info.obs_min(1), ...
+%                         obj.reward_info.obs_max(2)-obj.reward_info.obs_min(2)]; 
+%                 rectangle('Position',pos)
+%                 xlim([-4,4]);
+%                 ylim([-4,4]);
+%                 hold off
+%             end
+%             bla = 1;
+            % --------- DEBUGGING -------- %
         end
     end
 end

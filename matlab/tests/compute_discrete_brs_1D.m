@@ -7,7 +7,7 @@ gmax = [4, 1];
 gnums = [80, 80];
 
 % Hamilton-Jacobi Problem Setup
-uMode = "min"; % min or max
+uMode = "max"; % min or max
 num_timesteps = 10;
 compType = 'conf';
 uThresh = 0.;
@@ -30,7 +30,7 @@ extraPltArgs.uMode = uMode;
 extraPltArgs.saveFigs = false;
 
 z0 = [0, 0.5];
-dyn_sys = HumanBelief1D(dt, thetas, num_ctrls, controls, z0);
+dyn_sys = HumanBelief2D(dt, thetas, num_ctrls, controls, z0);
 
 % Target Set Setup
 % x_target_ind = [2,gnums(1)-1];
@@ -43,6 +43,8 @@ center = [0; centerPgoal1];
 widths = [(gmax(1) - gmin(1)) - xoffset; 
           tol];
 initial_value_fun = construct_value_fun(center, widths, gmin, gmax, gnums);
+
+targets = initial_value_fun;
 
 tic
 % Store initial value function
@@ -73,9 +75,13 @@ while tidx > 0
     
     % Minimize/Maximize over possible future value functions.
     if strcmp(uMode, "min")
-        value_fun = min(possible_value_funs, [], 3);
+%         value_fun = min(possible_value_funs, [], 3);
+        
+        value_fun = min(min(possible_value_funs, [], 3), targets);
     else
-        value_fun = max(possible_value_funs, [], 3);
+%         value_fun = max(possible_value_funs, [], 3);
+        
+        value_fun = min(max(possible_value_funs, [], 3), targets);
     end
     
     value_funs{tidx} = value_fun;
@@ -85,10 +91,11 @@ end
 
 toc
 
-% Plot valued functions
+% Plot value functions
 if plot
-    videoFilename = 'brs_1D.avi';
-    vout = VideoWriter(videoFilename,'Motion JPEG AVI');
+    videoFilename = strcat('brs_2D_',uMode,'.mp4'); 
+    vout = VideoWriter(videoFilename,'MPEG-4'); 
+    %VideoWriter(videoFilename,'Motion JPEG AVI');
     vout.Quality = 100;
     vout.FrameRate = 5;
     vout.open;
@@ -108,7 +115,8 @@ if plot
         zlabel('$l(z)$', 'Interpreter', 'Latex');
         xt = xlabel('$x$', 'Interpreter', 'Latex');
         yt = ylabel('$b(\theta = -3)$', 'Interpreter', 'Latex');
-        t = title(strcat('V(z,t=-', num2str((num_timesteps-i)*dt), ')'), 'Interpreter', 'Latex');
+%         t = title('l(z)', 'Interpreter', 'Latex');
+        t = title(strcat('V(z,t=', num2str((i-1)*dt), ')'), 'Interpreter', 'Latex');
         xt.FontSize = 15;
         yt.FontSize = 15;
         t.FontSize = 15;
@@ -136,6 +144,15 @@ if plot
         is.MarkerEdgeColor = 'k';
         
         set(gcf,'color','w'); 
+%         colormap(flipud(pink))
+
+        a = [255, 125, 147]/255.;
+        b = [255, 219, 38]/255.;
+        cmap = [linspace(1,1,256)', ...
+                linspace(a(2),b(2),256)', ...
+                linspace(a(3),b(3),256)'];
+
+        colormap(cmap);
         hold off
         pause(0.5);
         

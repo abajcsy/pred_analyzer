@@ -1,4 +1,4 @@
-classdef MDPHumanBelief2D_K < handle
+classdef MDPHumanBelief3DEuclid < handle
     % Human belief 1D class
     
     properties
@@ -14,7 +14,7 @@ classdef MDPHumanBelief2D_K < handle
     end
     
     methods
-        function obj = MDPHumanBelief2D_K(z0, thetas, trueThetaIdx, ...
+        function obj = MDPHumanBelief3DEuclid(z0, thetas, trueThetaIdx, ...
                 uThresh, gdisc)
             % Construct an instance of Grid.
             obj.thetas = thetas;
@@ -43,44 +43,52 @@ classdef MDPHumanBelief2D_K < handle
         end
         
         function likelyMasks = getLikelyMasks(obj, z)
-            if numel(size(z{1})) == 3
-                grid = true;
-            else
-                grid = false;
+            likelyMasks = containers.Map;
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                
+%                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
+%                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
+%                 normalizer = b0 + b1;
+%                 
+%                 mask = (normalizer >= obj.uThresh);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) >= delta}
+                putheta = obj.pugivenxtheta(u_i, z, obj.thetas{obj.trueThetaIdx});
+                mask = (putheta >= obj.uThresh);
+                mask = mask * 1.0;
+                mask(mask==0) = nan;
+                likelyMasks(num2str(u_i)) = mask;
             end
-            
+        end
+        
+        function likelyMasks = getLikelyMasks_topk(obj, z)
             likelyMasks = containers.Map;
             
             probs = zeros([size(z{1}), numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
+                
+%                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
+%                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
+%                 normalizer = b0 + b1;
+%                 
+%                 mask = (normalizer >= obj.uThresh);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) >= delta}
                 putheta = obj.pugivenxtheta(u_i, z, obj.thetas{obj.trueThetaIdx});
-                if grid
-                    probs(:,:,:,i) = putheta;
-                else
-                    probs(:,i) = putheta;
-                end
+                probs(:,:,:,i) = putheta;
+%                 likelyMasks(num2str(u_i)) = mask;
             end
-            
-            if grid
-                [~, IX] = sort(probs,4);
-                [~,IX]=sort(IX,4);
-            else
-                [~, IX] = sort(probs,2);
-                [~,IX]=sort(IX,2);
-            end
-            
-            mask = (IX > numel(obj.controls) - obj.uThresh);
+            mask = (sort(probs,4) <= obj.uThresh);
             mask = mask * 1.0;
             mask(mask==0) = nan;
             
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
-                if grid
-                    likelyMasks(num2str(u_i)) = mask(:,:,:,i);
-                else
-                    likelyMasks(num2str(u_i)) = mask(:,i);
-                end
+                likelyMasks(num2str(u_i)) = mask(:,:,:,i);
             end
         end
         

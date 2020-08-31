@@ -84,15 +84,28 @@ if isfield(extraArgs, 'stopInit')
     end
 end
 
-% (Benchmarking) Timer for the overall computation.
-overallStart = tic;
-
 % Store initial value function.
 value_funs = cell(1, num_timesteps);
 value_funs{num_timesteps} = initV;
 
 % Compute BRS backwards in time.
 tidx = num_timesteps - 1;
+
+% Precompute likely masks over entire state space.
+fprintf("Pre-computing all likely controls over state space...\n");
+likelyMasks = dyn_sys.getLikelyMasks(g.xs);
+
+% Precomputing all the next states.
+fprintf("Pre-computing dynamics over state space...\n");
+next_state_cache = containers.Map;
+for i=1:num_ctrls
+    u_i = controls{i};
+    next_state = dyn_sys.dynamics(g.xs, u_i);
+    next_state_cache(num2str(u_i)) = next_state;
+end
+
+% (Benchmarking) Timer for the overall computation.
+overallStart = tic;
 
 while tidx > 0
     fprintf("Computing value function for iteration t=%f...\n", tidx);
@@ -108,10 +121,10 @@ while tidx > 0
     % value functions for each control
     current_state = compute_grid.get_grid();
     possible_value_funs = zeros([compute_grid.gnums, num_ctrls]);
-    likelyMasks = dyn_sys.getLikelyMasks(current_state);
     for i=1:num_ctrls
         u_i = controls{i};
-        next_state = dyn_sys.dynamics(current_state, u_i);
+        next_state = next_state_cache(num2str(u_i));
+%         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u_i));
         data_next = compute_grid.GetDataAtReal(next_state);
         possible_value_funs(:,:,:,i) = data_next .* likelyMask;

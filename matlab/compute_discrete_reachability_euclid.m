@@ -7,27 +7,34 @@ close all
 %% Grid setup
 gmin = [-4, -4, 0];
 gmax = [4, 4, 1];
-gnums = [20, 20, 20];
+gnums = [30, 30, 30];
 g = createGrid(gmin, gmax, gnums);
 
 %% Target Set Setup
-tol = 0.1;
+tol = 0.2;
 centerPgoal1 = 0.9;
 xyoffset = 0.1;
 center = [0; 0; centerPgoal1];
 widths = [(gmax(1) - gmin(1)) - xyoffset; ...
           (gmax(2) - gmin(2)) - xyoffset; 
           tol];
+% tol = 0.2;
+% centerPgoal1 = 0.1;
+% xyoffset = 0.1;
+% center = [-2; 2; centerPgoal1];
+% widths = [1; ...
+%           1; 
+%           tol];
 initial_value_fun = shapeRectangleByCenter(g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 15;
+num_timesteps = 25;
 tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 uMode = "min"; % min or max
-uThresh = 1;%0.14; % 0.16;
+uThresh = 0.00; %0.13; %0.14; % 0.16;
 
 %% Plotting?
 plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -37,23 +44,36 @@ thetas = {[-2, 2], [2, 2]};
 trueThetaIdx = 1;
 
 % Initial state and dynamical system setup
-initial_state = {0, 0, 0.1};
+initial_state = {-2,0,0.5}; %{0, 0, 0.1};
 
 % MDP human.
 gdisc = (gmax - gmin) ./ (gnums - 1);
-dyn_sys = MDPHumanBelief2D_K(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
+dyn_sys = MDPHumanBelief3DEuclid(initial_state, thetas, trueThetaIdx, uThresh, gdisc);
 
 % Discrete control angle human. 
 % v = 1.0;
 % n = 20;
-% dyn_sys = HumanBelief2D(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
+% dyn_sys = HumanBelief3DEuclid(initial_state, thetas, trueThetaIdx, uThresh, dt, v, n);
 
 %% Pack problem parameters
 schemeData.grid = g;
 schemeData.dynSys = dyn_sys;
 schemeData.uMode = uMode;
 
+%% Adding obstacles
+existsObstacle = false;
+% obs_center = [-1; 1; 0.5];
+% obs_width = [1; ...
+%           1; 
+%           1.0];
+% obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
+% extraArgs.obstacles = obstacle_fun;
+
 %% Pack value function params
+if existsObstacle
+    initial_value_fun = max(initial_value_fun,obstacle_fun);
+end
+
 extraArgs.targets = initial_value_fun;
 % extraArgs.stopInit = initial_state;
 
@@ -70,7 +90,7 @@ extraArgsCtrl.interpolate = false;
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
 [traj, traj_tau] = computeOptTraj(initial_state, g, value_funs, tau, dyn_sys, uMode, extraArgsCtrl);
-    
+
 %% Plot optimal trajectory and value functions
 % if isfield(extraOuts, 'stoptau')
 %     start_idx = extraOuts.stoptau;
@@ -83,6 +103,12 @@ if plot
     extraPltArgs.uThresh = uThresh;
     extraPltArgs.uMode = uMode;
     extraPltArgs.saveFigs = false;
+    if existsObstacle
+        extraPltArgs.existsObstacle = existsObstacle;
+        extraPltArgs.obs_center = obs_center;
+        extraPltArgs.obs_width = obs_width;
+        extraPltArgs.obstacles = obstacle_fun;
+    end
     
     % Plot the optimal traj
     plotOptTraj(traj, traj_tau, thetas, trueThetaIdx, ...
@@ -92,6 +118,10 @@ if plot
 %     visBRSVideo(g, value_funs, initial_state, tau);
 %     visBRSSubplots(g, value_funs, initial_state, tau);
 end
+
+save(strcat('e2_b50_finer_grid_brt_',uMode,'_uthresh',num2str(uThresh),'.mat'), 'g', 'gmin', 'gmax', 'gnums', ...
+    'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
+    'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
 
 %% Helper functions
 % TODO: Make x_ind, b_ind depend on real values not indices

@@ -1,6 +1,10 @@
 function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
-    grid_min, grid_max, grid_nums, goalSetRad, value_funs, extraPltArgs)
+    grid_min, grid_max, grid_nums, goalSetRad, extraPltArgs)
     
+    % Extract which dimension(s) are the belief dimensions.
+    bdims = extraPltArgs.bdims;
+    dims = length(grid_nums); % total number of dimensions of this system
+
     figure
     hold on
     
@@ -30,7 +34,7 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     % Record state.
     % Plot first point.
     color = [r(1), g(1), b(1)];
-    xcurr = traj(1:3, 1);
+    xcurr = traj(1:dims, 1);
     plot3(xcurr(1), xcurr(2), xcurr(3), '-o', 'color', color, ...
         'markeredgecolor', color, 'markerfacecolor', color);
     
@@ -39,8 +43,8 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
     tp.Color = color;
     for t=2:length(traj_tau)
-        xprev = traj(1:3, t-1);
-        xcurr = traj(1:3, t);
+        xprev = traj(1:dims, t-1);
+        xcurr = traj(1:dims, t);
         % Plot point and connection between pts.
         color = [r(t), g(t), b(t)];
         p = plot3([xprev(1), xcurr(1)], [xprev(2), xcurr(2)], [xprev(3), xcurr(3)], '-o', ...
@@ -49,25 +53,13 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
         
-%         if t == length(traj_tau)
+        if t == length(traj_tau)
             txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
-            tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
+            tp = text(xcurr(1)+0.05, xcurr(2)+initoffset+0.1, xcurr(3)+0.05, txt);
             tp.Color = color;
-%         end
-        
-        % ---- Debugging! ---- %
-        % Shows the value function for the previous point.
-        vg = createGrid(grid_min, grid_max, grid_nums);
-        h = visSetIm(vg, value_funs{t-1});
-        delete(h);
-        % ---- Debugging! ---- %
-    end
+        end
     
-%     xcurr = traj(1:3, end);
-%     % add final info.
-%     txt = strcat('t=', num2str(traj_tau(end)), ', b=', num2str(xcurr(3)));
-%     tp = text(xcurr(1), xcurr(2)+finaloffset, xcurr(3)+0.1, txt);
-%     tp.Color = color;
+    end
 
     % Plot GOAL 1.
     if strcmp(extraPltArgs.compType, 'conf_and_goal') || ...
@@ -147,12 +139,20 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     end
     
     % Plot obstacles.
-    if isfield(extraPltArgs, 'existsObstacle') && extraPltArgs.existsObstacle
-        x_min = extraPltArgs.obs_center(1) - (extraPltArgs.obs_width(1)/2);
-        y_min = extraPltArgs.obs_center(2) - (extraPltArgs.obs_width(2)/2);
-        p_min = extraPltArgs.obs_center(3) - (extraPltArgs.obs_width(3)/2);
-        l = [extraPltArgs.obs_width(1) extraPltArgs.obs_width(2) extraPltArgs.obs_width(3)];
-        plotcube(l,[x_min y_min p_min],.8,[1 0 0]);
+    if isfield(extraPltArgs, 'obstacles')
+
+        for oi = 1:length(extraPltArgs.obstacles)
+            obs_info = extraPltArgs.obstacles{oi};
+            obs_min = obs_info(1:2);
+
+            x_min = obs_min(1);
+            y_min = obs_min(2);
+            p_min = 0;
+            l = [obs_info(3), ...
+                obs_info(4), ...
+                1];
+            plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+        end
     end
     
     hold off

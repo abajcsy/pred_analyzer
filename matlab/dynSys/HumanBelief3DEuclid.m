@@ -1,5 +1,5 @@
-classdef HumanBelief2D_K < handle
-    % Human belief 1D class
+classdef HumanBelief3DEuclid < handle
+    % Human belief 3D with euclidian Q-function class.
     
     properties
         dt % discrete timestep
@@ -8,7 +8,7 @@ classdef HumanBelief2D_K < handle
         controls % discretized controls
         z0 % initial joint state z = (x, y, b(theta_1))
         v % constant speed of human
-        uThresh % threshold for sufficiently likely controls (top k)
+        uThresh % threshold probability for sufficiently likely controls
         trueThetaIdx % true human intent parameter. 
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
@@ -16,7 +16,7 @@ classdef HumanBelief2D_K < handle
     end
     
     methods
-        function obj = HumanBelief2D_K(z0, thetas, trueThetaIdx, uThresh, ...
+        function obj = HumanBelief3DEuclid(z0, thetas, trueThetaIdx, uThresh, ...
                 dt, v, num_ctrls)
             % Construct an instance of Grid.
             obj.dt = dt;
@@ -47,44 +47,23 @@ classdef HumanBelief2D_K < handle
         end
         
         function likelyMasks = getLikelyMasks(obj, z)
-            if numel(size(z{1})) == 3
-                grid = true;
-            else
-                grid = false;
-            end
-            
             likelyMasks = containers.Map;
-            
-            probs = zeros([size(z{1}), numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
+                
+%                 b0 = obj.pugivenxtheta(u_i, z, obj.thetas{1}) .* z{3};
+%                 b1 = obj.pugivenxtheta(u_i, z, obj.thetas{2}) .* (1-z{3});
+%                 normalizer = b0 + b1;
+%                 
+%                 mask = (normalizer >= obj.uThresh);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) >= delta}
                 putheta = obj.pugivenxtheta(u_i, z, obj.thetas{obj.trueThetaIdx});
-                if grid
-                    probs(:,:,:,i) = putheta;
-                else
-                    probs(:,i) = putheta;
-                end
-            end
-            
-            if grid
-                [~, IX] = sort(probs,4);
-                [~,IX]=sort(IX,4);
-            else
-                [~, IX] = sort(probs,2);
-                [~,IX]=sort(IX,2);
-            end
-            
-            mask = (IX > numel(obj.controls) - obj.uThresh);
-            mask = mask * 1.0;
-            mask(mask==0) = nan;
-            
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-                if grid
-                    likelyMasks(num2str(u_i)) = mask(:,:,:,i);
-                else
-                    likelyMasks(num2str(u_i)) = mask(:,i);
-                end
+                mask = (putheta >= obj.uThresh);
+                mask = mask * 1;
+                mask(mask == 0) = nan;
+                likelyMasks(num2str(u_i)) = mask;
             end
         end
         
@@ -103,6 +82,7 @@ classdef HumanBelief2D_K < handle
             pu = numerator ./ denominator;
         end
         
+        
         function controls = generate_controls_non_mdp(obj, n, v)
             us = linspace(0,2*pi - 1e-2,n);
             controls = cell(1,n);
@@ -112,6 +92,7 @@ classdef HumanBelief2D_K < handle
                 controls{i} = [v*cos(u_i), v*sin(u_i)];
             end
         end
+
     end
 end
 
