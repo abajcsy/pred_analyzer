@@ -61,7 +61,8 @@ classdef Grid < handle
             end
             
             idx = cell(size(coords{1}));
-            parfor ind=1:numel(idx)
+%             parfor ind=1:numel(idx)
+            for ind=1:numel(idx)
                 sub = [];
                 for dim=1:dims
                     sub = [sub index{dim}(ind)];
