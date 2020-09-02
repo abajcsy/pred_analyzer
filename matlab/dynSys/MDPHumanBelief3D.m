@@ -343,10 +343,14 @@ classdef MDPHumanBelief3D < handle
                 pu = obj.pugivenxtheta(u_i, init_z, obj.q_funs{trueThetaIdx});
                 sum_pus = sum_pus + pu;
                 fprintf(strcat('P(u = ',controls_text{i},') = ',num2str(pu),'\n'));
-                znext = obj.physical_dynamics(init_z,u_i);
+                znext = obj.dynamics(init_z,u_i);
                 scatter(znext{1}, znext{2}, 'b');
                 t = text(znext{1}-0.05, znext{2}+0.05, strcat('P(',controls_text{i},') : ',num2str(pu)));
                 t.Color = [0,0,1];
+                
+                t = text(znext{1}-0.05, znext{2}-0.1, ...
+                    strcat('b(g1|',controls_text{i},') : ',num2str(znext{3})));
+                t.Color = [1,0,0];
             end
             fprintf("sum of pu's = %f\n", sum_pus);
 
