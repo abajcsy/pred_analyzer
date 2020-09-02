@@ -151,9 +151,9 @@ classdef CarHumanBelief4D < handle
                 u_i = obj.controls{i};
 
                 % We want to choose controls such that:
-                %   U = {u : P(u | x, theta = trueTheta) >= delta}
+                %   U = {u : P(u | x, theta = trueTheta) > delta}
                 putheta = obj.pugivenxtheta(u_i, z, obj.q_funs{obj.trueThetaIdx});
-                mask = (putheta >= obj.uThresh);
+                mask = (putheta > obj.uThresh);
                 mask = mask * 1.0;
                 mask(mask==0) = nan;
                 likelyMasks(num2str(u_i)) = mask;
