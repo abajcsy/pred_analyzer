@@ -9,7 +9,7 @@ params.bdims = 4; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[-3.6, 1, pi], [1, 3.6, pi/2]};
-params.trueThetaIdx = 1;
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
 tol = 0.2;
