@@ -40,11 +40,16 @@ while zmax{3} < 0.85
         qfun = dynSys.q_funs{params.trueThetaIdx};
         pu = dynSys.pugivenxtheta(u, zmax, qfun);
         
+        % == Uncomment this if you want to maximize the Q-function: == %
+        %                   u* = argmax_u Q(x,u,g)
 %         if pu > max_b
 %             max_b = pu;
 %             max_u = u;
 %         end
-
+        % ============================================================ %
+        
+        % == Uncomment this if you want to maximize the posterior: == %
+        %                   u* = argmax_u b'(g | x, u)
         % propagate dynamics.
         bnext = dynSys.belief_update(u,zmax);
         
@@ -52,6 +57,7 @@ while zmax{3} < 0.85
             max_b = bnext;
             max_u = u;
         end
+        % ============================================================ %
     end
     % propagate dynamics.
     znext = dynSys.dynamics(zmax,max_u);
