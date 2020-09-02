@@ -35,27 +35,27 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     % Plot first point.
     color = [r(1), g(1), b(1)];
     xcurr = traj(1:dims, 1);
-    plot3(xcurr(1), xcurr(2), xcurr(3), '-o', 'color', color, ...
+    plot3(xcurr(1), xcurr(2), xcurr(bdims), '-o', 'color', color, ...
         'markeredgecolor', color, 'markerfacecolor', color);
     
     % Add first timestamp.
-    txt = strcat('t=', num2str(traj_tau(1)), ', b=', num2str(xcurr(3)));
-    tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
+    txt = strcat('t=', num2str(traj_tau(1)), ', b=', num2str(xcurr(bdims)));
+    tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(bdims)+0.05, txt);
     tp.Color = color;
     for t=2:length(traj_tau)
         xprev = traj(1:dims, t-1);
         xcurr = traj(1:dims, t);
         % Plot point and connection between pts.
         color = [r(t), g(t), b(t)];
-        p = plot3([xprev(1), xcurr(1)], [xprev(2), xcurr(2)], [xprev(3), xcurr(3)], '-o', ...
+        p = plot3([xprev(1), xcurr(1)], [xprev(2), xcurr(2)], [xprev(bdims), xcurr(bdims)], '-o', ...
                 'Color', color, ...
                 'markeredgecolor', color, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
         
         if t == length(traj_tau)
-            txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(3)));
-            tp = text(xcurr(1)+0.05, xcurr(2)+initoffset+0.1, xcurr(3)+0.05, txt);
+            txt = strcat('t=', num2str(traj_tau(t)), ', b=', num2str(xcurr(bdims)));
+            tp = text(xcurr(1)+0.05, xcurr(2)+initoffset+0.1, xcurr(bdims)+0.05, txt);
             tp.Color = color;
         end
     
@@ -109,7 +109,7 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     xticks([grid_min(1), -3, -2, -1, 0, 1, 2, 3, grid_max(1)]);
     xlim([grid_min(1), grid_max(1)]);
     ylim([grid_min(2), grid_max(2)]);
-    zlim([grid_min(3), grid_max(3)]);
+    zlim([grid_min(bdims), grid_max(bdims)]);
     
     % Setup labels and position of figure.
     xlabel('x');

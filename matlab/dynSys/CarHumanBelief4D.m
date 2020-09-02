@@ -100,7 +100,8 @@ classdef CarHumanBelief4D < handle
             
             znext{1} = znext_phys{1};
             znext{2} = znext_phys{2};
-            znext{3} = obj.belief_update(u,z);
+            znext{3} = znext_phys{3};
+            znext{4} = obj.belief_update(u,z);
         end
         
         %% Dyanmics of physical states.
@@ -150,9 +151,9 @@ classdef CarHumanBelief4D < handle
                 u_i = obj.controls{i};
 
                 % We want to choose controls such that:
-                %   U = {u : P(u | x, theta = trueTheta) >= delta}
+                %   U = {u : P(u | x, theta = trueTheta) > delta}
                 putheta = obj.pugivenxtheta(u_i, z, obj.q_funs{obj.trueThetaIdx});
-                mask = (putheta >= obj.uThresh);
+                mask = (putheta > obj.uThresh);
                 mask = mask * 1.0;
                 mask(mask==0) = nan;
                 likelyMasks(num2str(u_i)) = mask;
@@ -276,7 +277,7 @@ classdef CarHumanBelief4D < handle
             
             % Compute Q-function
             q_fun = containers.Map;
-            q_l = zeros([size(v_fun), numel(obj.controls)]);
+            sum_exp = 0;
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 next_state = obj.physical_dynamics(state_grid, u_i);
@@ -285,12 +286,13 @@ classdef CarHumanBelief4D < handle
                 q_i = Grid(g_min, g_max, g_nums);
                 q_i.SetData(q_data);
                 q_fun(num2str(u_i)) = q_i;
-                q_l(:,:,:,i) = q_i.data;
+                sum_exp = sum_exp + exp(q_i.data);
             end
             
-            % Make invalid states have Q-value of zero.
-            maxQ = max(q_l, [], 4);
-            isInvalid = (maxQ <= -obj.nearInf); 
+            % Make invalid states have Q-value of zero. States are invalid
+            % if \sum e^Q(x,u') == 0 (i.e no states give a non-zero action)
+%             isInvalid = (maxQ <= -obj.nearInf);
+            isInvalid = (sum_exp == 0);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 q_i = q_fun(num2str(u_i)).data;

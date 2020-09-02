@@ -116,6 +116,8 @@ while tidx > 0
     % Create grid and set data to value function at t+1
     compute_grid = Grid(g.min, g.max, g.N);
     compute_grid.SetData(value_funs{tidx + 1});
+    
+    num_dims = numel(g.N);
 
     % Compute possible next state after one timestep and find possible
     % value functions for each control
@@ -127,24 +129,29 @@ while tidx > 0
 %         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u_i));
         data_next = compute_grid.GetDataAtReal(next_state);
-        possible_value_funs(:,:,:,i) = data_next .* likelyMask;
+        if num_dims == 3
+            possible_value_funs(:,:,:,i) = data_next .* likelyMask;
+        elseif num_dims == 4
+            possible_value_funs(:,:,:,:,i) = data_next .* likelyMask;
+        end
+                
     end
 
     % Minimize/Maximize over possible future value functions.
     if strcmp(schemeData.uMode, "min")
         if strcmp(compMethod, "none") || strcmp(compMethod, "set")
-            value_fun = min(possible_value_funs, [], 4);
+            value_fun = min(possible_value_funs, [], num_dims+1);
         elseif strcmp(compMethod, "minVWithL") || strcmp(compMethod, "minVwithL")
-            value_fun = min(min(possible_value_funs, [], 4), targets);
+            value_fun = min(min(possible_value_funs, [], num_dims+1), targets);
         else 
             warning("compMethod is not supported!")
             return;
         end
     elseif strcmp(schemeData.uMode, "max")
         if strcmp(compMethod, "none") || strcmp(compMethod, "set")
-            value_fun = max(possible_value_funs, [], 4);
+            value_fun = max(possible_value_funs, [], num_dims+1);
         elseif strcmp(compMethod, "minVWithL") || strcmp(compMethod, "minVwithL")
-            value_fun = min(max(possible_value_funs, [], 4), targets);
+            value_fun = min(max(possible_value_funs, [], num_dims+1), targets);
         else
             error("compMethod is not supported!")
         end
