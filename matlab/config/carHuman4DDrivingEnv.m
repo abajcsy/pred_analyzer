@@ -9,7 +9,7 @@ params.bdims = 4; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[-3.6, 1, pi], [1, 3.6, pi/2]};
-params.trueThetaIdx = 2;
+params.trueThetaIdx = 1;
 
 %% Target Set Setup
 tol = 0.2;
@@ -33,11 +33,16 @@ widths = [(params.gmax(1) - params.gmin(1)) - xyoffset; ...
           (params.gmax(2) - params.gmin(2)) - xyoffset; ...
           (params.gmax(3) - params.gmin(3)) - phioffset; ...
           tol];
+% center = [params.thetas{params.trueThetaIdx} centerPgoal1];
+% widths = [0.5; ...
+%           0.5; ...
+%           pi; ...
+%           tol];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -74,6 +79,9 @@ end
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
 params.initial_state = {0.6, -3.5, pi/2, 0.5}; 
+% params.initial_state = {1.7, -3.5, pi/2, 0.5};
+% params.initial_state = {3, 1, pi, 0.5};
+% params.initial_state = {0, 0, 0, 0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 

@@ -12,7 +12,7 @@ function visBRSSubplots(g, value_funs, initial_state, tau)
         h = subplot(floor(num_timesteps/row_len) + 1,row_len,i);
         axis(viewAxis)
         axis square
-        visSetIm(g,value_funs{i});
+        visSetIm(g,value_funs{numel(value_funs)-num_timesteps+i});
         t = title(['t=',num2str((i-1)*dt),' s'], 'Interpreter', 'Latex');
         t.FontSize = 18;
         view(-43, 13);

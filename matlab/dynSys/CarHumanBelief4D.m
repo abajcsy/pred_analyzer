@@ -289,16 +289,55 @@ classdef CarHumanBelief4D < handle
                 sum_exp = sum_exp + exp(q_i.data);
             end
             
-            % Make invalid states have Q-value of zero. States are invalid
-            % if \sum e^Q(x,u') == 0 (i.e no states give a non-zero action)
-%             isInvalid = (maxQ <= -obj.nearInf);
+            % ZERO ISSUE FIX
+            % Make invalid states have Q-value of zero for all actions except
+            % those that 1) are at the goal 2) moving into obstacle
+            % 3) moving out of grid. 
+            % States are invalid if \sum e^Q(x,u') == 0 (i.e no states give 
+            % a non-zero action)
             isInvalid = (sum_exp == 0);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
+                next_state = obj.physical_dynamics(state_grid, u_i);
                 q_i = q_fun(num2str(u_i)).data;
                 q_i(isInvalid) = 0;
                 q = Grid(g_min, g_max, g_nums);
-                q.SetData(q_i);
+                
+                if i==1 % Ensure stop action is only equally likely if at goal.
+                    q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+                    q.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+                end
+                
+                % -inf if moving outside grid or into obstacle
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+                                  (penalty_outside_mask==1) .* -obj.nearInf; 
+                              
+                if obj.has_obs
+                    penalty_obstacle_mask = 0 .* state_grid{1};
+                    for oi = 1:length(obj.reward_info.obstacles)
+                        obs_info = obj.reward_info.obstacles{oi};
+                        obs_min = obs_info(1:2);
+                        obs_max = obs_info(1:2) + obs_info(3:4);
+
+                        % -inf if moving into obstacle or inside of an obstacle rn.
+                        penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+                                (next_state{2} >= obs_min(2)) & ...
+                                (next_state{1} <= obs_max(1)) & ...
+                                (next_state{2} <= obs_max(2)); 
+                        penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+                    end
+                    penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+                                        (penalty_obstacle_mask==1) .* -obj.nearInf;
+                    else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle = zeros(size(state_grid{1}));
+                end
+                
+                q.SetData(q_i + penalty_obstacle + penalty_outside); 
                 q_fun(num2str(u_i)) = q;
             end
         end
