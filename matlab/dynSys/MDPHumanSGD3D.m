@@ -1,66 +1,106 @@
-classdef MDPHumanBelief3D < handle
-    
+classdef MDPHumanSGD3D < handle
+
     properties
-        thetas          % (cell) set of model parameters
         num_ctrls       % (int) number of discrete controls
         controls        % (arr) discretized controls
-        z0              % (cell) initial joint state z = (x, y, b(theta_1))
+        z0              % (cell) initial joint state z = (x, y, theta)
         uThresh         % (float) threshold probability for sufficiently likely controls
-        trueThetaIdx    % (int) true human intent parameter.
+        trueTheta       % (float) true human reward weight.
         v_funs          % (cell) Value functions (one entry per theta)
         q_funs          % (cell) Q-functions (one entry per theta)
         reward_info     % (struct) Information for reward function construction
         nearInf         % (float) Very large number which is < Inf 
         has_obs         % (bool) If this environment has obstacles or not.
-        beta            % (float) beta \in [0, inf) which governs variance of likelihood model.
-        gdisc           % (arr) discretization resolution in x,y,b(th=1)
+        gdisc           % (arr) discretization resolution in x,y,theta
+        alpha           % (float) step size for SGD update
+        w1              % (float) weight on distance-to-goal (pre-specified)
         
-        % Note: Is it safe to assume b scalar or can we have len(theta)>2
-        % (which would mean to have b of dimension len(theta)-1)?
+        goal_feature    % (Map) phi(x,u) for distance-to-goal feature
+        obs_feature     % (Map) phi(x,u) for distance-to-obstacles feature
     end
     
     methods
-        function obj = MDPHumanBelief3D(z0, reward_info, trueThetaIdx, ...
-                                        uThresh, gdisc, gamma, eps, beta)
-            % MDPHumanBelief3D 
+        function obj = MDPHumanSGD3D(z0, reward_info, trueTheta, ...
+                                        uThresh, gdisc, gamma, ...
+                                        eps, alpha, w1)
+            % MDPHumanSGD3D 
             %   Represents joint dynamics of a 2D point human 
-            %   and a 2D discrete belief distribution. The belief is over
-            %   two unknown goals, denoted by theta. The dynamics follow 
+            %   and an unknown reward parameter. The reward parameter 
+            %   is denoted by theta and weights how far from obstacles the 
+            %   human prefers to stay. The physical dynamics follow 
             %   an MDP grid structure where actions are UP/DOWN/LEFT/RIGHT
             %   and the four DIAGONALS and STOP. 
             %
             %   State:
-            %       z = [x, y, b(theta = th1)]
+            %       z = [x, y, theta]
+            %           x \in [xmin, xmax]          (1D)
+            %           y \in [ymin, ymax]          (1D)
+            %           theta \in [thmin, thmax]    (1D)
             %   Dynamics:
             %       zdot = [x + u, 
             %               y + u, 
-            %               P(u | x, theta)b(theta = th1)/P(x,u)]
+            %               theta + alpha * \nabla_theta Q(x,u;theta)]
             %       where:
-            %           P(u | x, theta) \propto e^{beta * Q(x,u,theta)}
+            %           \nabla_theta Q(x,u;theta) 
+            %           is gradient of Q wrt theta for a given (x,u) pair. 
             %
             %       Q(x,u,theta) is computed via value iteration and the 
             %       reward function information packed into reward_info.
+            %       The reward function is structured as a linear
+            %       combination of features:
+            %           r(x,u) = w^T * phi(x,u)
+            %       where:
+            %           phi(x,u) = [dist_to_goal(x,u), dist_to_obs(x,u)]    
+            %           w = [1 ; theta]
+            %       encoding a known weight to the goal, but unknown weight
+            %       to stay away from obstacles. 
+            % 
             %   Controls:
             %       u \in {'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'}
             %   
+            %   Inputs:
+            %       z0: (cell) joint initial condition 
+            %       reward_info: (struct) reward information
+            %                   .obstacles: axis-aligned bounds of obs
+            %                   .g: grid for the physical states
+            %                   .thetas: list of discrete thetas for which
+            %                            to compute Q-function
+            %                   .goal: goal location in physical state
+            %                          space
+            %                   .goalRad: radius around goal for distance
+            %                             function
+            %       trueTheta: (cell) true reward weight
+            %       uThresh: (float) threshold for likely controls
+            %       gdisc: (arr) discretization resolution in x,y,theta
+            %       gamma: (float) discount factor for Q-function compute
+            %       eps: (float) convergence threshold for Q-function 
+            %       alpha: (float) step size for SGD update
+            % 
             obj.controls = obj.generate_controls_mdp(gdisc);
             obj.num_ctrls = numel(obj.controls);
             obj.z0 = z0;
             obj.uThresh = uThresh;
-            obj.trueThetaIdx = trueThetaIdx;
+            obj.trueTheta = trueTheta;
             obj.nearInf = 1000000000.0;
             obj.v_funs = cell(1,numel(reward_info.thetas));
             obj.q_funs = cell(1,numel(reward_info.thetas));
             obj.reward_info = reward_info;
-            obj.beta = beta;
             obj.gdisc = gdisc;
+            obj.alpha = alpha;
+            obj.w1 = w1;
             
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
                 obj.has_obs = true;
             end
             
-            % Pre-compute the Q-functions for each theta.
+            % Pre-compute the reward features. 
+            %       phi(x,u) = [dist_to_goal(x,u), dist_to_obs(x,u)]    
+            obj.goal_feature = obj.compute_goal_feature(reward_info);
+            obj.obs_feature = obj.compute_obs_feature(reward_info);
+            
+            % Pre-compute the Q-functions for a discrete set of thetas
+            % (used for finite-difference approx to gradient) 
             for th_idx=1:numel(reward_info.thetas)
                 fprintf('Pre-computing Q-function for theta = %d / %d\n', ...
                     th_idx, numel(reward_info.thetas));
@@ -80,7 +120,7 @@ classdef MDPHumanBelief3D < handle
             znext = cell(size(z));
             znext{1} = z{1} + u(1);
             znext{2} = z{2} + u(2);
-            znext{3} = obj.belief_update(u,z);
+            znext{3} = obj.sgd(u,z);
         end
         
         %% Dyanmics of physical states.
@@ -92,44 +132,26 @@ classdef MDPHumanBelief3D < handle
             znext{2} = z{2} + u(2);
         end
         
-        %% Dynamics of the belief states (i.e. belief update)
-        function bnext = belief_update(obj,u,z)
-            % Calculate Bayesian posterior update.
-            b0 = obj.pugivenxtheta(u, z, obj.q_funs{1}) .* z{3};
-            b1 = obj.pugivenxtheta(u, z, obj.q_funs{2}) .* (1-z{3});
-            normalizer = b0 + b1;
-            bnext = b0 ./ normalizer;
-        end
-        
-        %% Mask over states for each control denoting if that control 
-        %  is sufficiently likely at this state. 
-        function likelyMasks = getLikelyMasks(obj, z)
-            likelyMasks = containers.Map;
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-
-                % We want to choose controls such that:
-                %   U = {u : P(u | x, theta = trueTheta) > delta}
-                putheta = obj.pugivenxtheta(u_i, z, obj.q_funs{obj.trueThetaIdx});
-                mask = (putheta > obj.uThresh);
-                mask = mask * 1.0;
-                mask(mask==0) = nan;
-                likelyMasks(num2str(u_i)) = mask;
-            end
-        end
-        
-        %% Computes P(u | x, theta) \propto e^{beta * Q(x,u,theta)}
-        function pu = pugivenxtheta(obj, u, z, q_fun)
-            % Return probability of control u given state x and model parameter theta.
-            q_val = q_fun(num2str(u));
-            numerator = exp(obj.beta * q_val.GetDataAtReal(z));
-            denominator = 0;
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-                q_val = q_fun(num2str(u_i));
-                denominator = denominator + exp(obj.beta * q_val.GetDataAtReal(z));
-            end
-            pu = numerator ./ denominator;
+        %% Performs SGD update on weight parameter
+        %   theta_n = theta_n-1 + \alpha * \nabla_theta Q(x,u,theta_n-1)
+        %  Uses a finite-difference approximation to \nabla_theta Q
+        function theta_n = sgd(u,z)
+            theta = z{3};
+            dth = obj.gdisc(3);
+            
+            % Approximate the gradient:
+            % \partial Q(x,u,theta_n)/\partial theta_n ~= 
+            %           Q(x,u; theta_n(1) + dth) - Q(x,u;theta_n(1))/dth
+            Q_theta = obj.q_funs{th_idx}(num2str(u));
+            Q_theta_dth = obj.q_funs{th_idx}(num2str(u));
+            
+%             q_val.GetDataAtReal(z);
+            
+            % Compute: \nabla_theta Q(x,u,theta_n-1)
+            dQ = (Q_theta_dth - Q_theta) / dth;
+            
+            % Perform SGD update:
+            theta_n = theta + obj.alpha .* dQ;
         end
         
         %% Generates the discrete controls for the MDP human. 
@@ -147,81 +169,77 @@ classdef MDPHumanBelief3D < handle
             end
         end
         
+        %% Computes phi(x,u) for distance-to-goal feature
+        % Returns map where key is control and value is grid over physical
+        % state space with the goal-feature for each (x,y) pair.
+        function goal_feature = compute_goal_feature(obj, reward_info)
+            % Note: need to negate goal signed distance. 
+            goal_feature = -1 * shapeCylinder(reward_info.g, [], ...
+                                  reward_info.goal, reward_info.goalRad);
+        end
+        
+        %% Computes phi(x,u) for distance-to-obs feature
+        % Returns map where key is control and value is grid over physical
+        % state space with the obstacle-feature for each (x,y) pair.
+        function obs_feature = compute_obs_feature(obj, reward_info)
+            obs_feature = [];
+            for oi = 1:length(reward_info.obstacles)
+                    obs_info = reward_info.obstacles{oi};
+                    obs_min = obs_info(1:2);
+                    obs_max = obs_info(1:2) + obs_info(3:4);
+                    obs_feature_curr = ...
+                        shapeRectangleByCorners(reward_info.g, ...
+                                                obs_min, obs_max);
+                    % combine all obstacle signed distance functions.
+                    if isempty(obs_feature)
+                        obs_feature = obs_feature_curr;
+                    else
+                        obs_feature = min(obs_feature, obs_feature_curr);
+                    end
+            end
+        end
+        
         %% Computes the Q-function for theta denoted by true_theta_idx 
         %   via value iteration. 
         function [v_grid, q_fun] = compute_q_fun(obj, true_theta_idx, gamma, eps)
-            % Compute reward function
-            % reward_info: gmin,gmax,gnums,g,obs_min,obs_max,obs_val
+            % Extract reward info.
             r_fun = containers.Map;
             state_grid = obj.reward_info.g.xs;
             g_min = obj.reward_info.g.min';
             g_max = obj.reward_info.g.max';
             g_nums = obj.reward_info.g.N';
             
-            % Create one mask which shows all states where obstacles are. 
-            penalty_in_obs_mask = 0 .* state_grid{1};
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                    obs_max = obs_info(1:2) + obs_info(3:4);
-                    obs_mask = (state_grid{1} >= obs_min(1)) & ...
-                        (state_grid{2} >= obs_min(2)) & ...
-                        (state_grid{1} <= obs_max(1)) & ...
-                        (state_grid{2} <= obs_max(2)); 
-                    % accumulate all obstacles in one mask. 
-                    penalty_in_obs_mask = penalty_in_obs_mask | obs_mask;
-                end
-            end
-            
+            % Setup reward weights.
+            w2 = obj.reward_info.thetas{true_theta_idx};
+  
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
                 next_state = obj.physical_dynamics(state_grid, u_i);
                 
-                % -inf if moving outside grid
-                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
-                                       (next_state{2} < g_min(2)) | ...
-                                       (next_state{1} > g_max(1)) | ...
-                                       (next_state{2} > g_max(2));
-                penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
-                                  (penalty_outside_mask==1) .* -obj.nearInf; 
+                % Make next states into a matrix. 
+                next_points = [next_state{1}(:), next_state{2}(:)];
                 
-                if obj.has_obs
-                    penalty_obstacle_mask = 0 .* state_grid{1};
-                    for oi = 1:length(obj.reward_info.obstacles)
-                        obs_info = obj.reward_info.obstacles{oi};
-                        obs_min = obs_info(1:2);
-                        obs_max = obs_info(1:2) + obs_info(3:4);
+                % Get phi(x,u) at the next state after applying u
+                phi_g = eval_u(obj.reward_info.g, obj.goal_feature, next_points);
+                phi_o = eval_u(obj.reward_info.g, obj.obs_feature, next_points);
+                
+                % Set reward to -inf if moving outside grid
+                phi_g(isnan(phi_g)) = -obj.nearInf;
+                phi_o(isnan(phi_o)) = -obj.nearInf;
+                
+                phi_g = reshape(phi_g, g_nums(1), g_nums(2));
+                phi_o = reshape(phi_o, g_nums(1), g_nums(2));
 
-                        % -inf if moving into obstacle or inside of an obstacle rn.
-                        penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
-                                (next_state{2} >= obs_min(2)) & ...
-                                (next_state{1} <= obs_max(1)) & ...
-                                (next_state{2} <= obs_max(2)); 
-                        penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
-                    end
-                    penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
-                                        (penalty_obstacle_mask==1) .* -obj.nearInf;
-                else
-                    % if no obstacles, then no penalty for obstacle anywhere. 
-                    penalty_obstacle = zeros(size(state_grid{1}));
-                end
-                
-                % action costs
-                if u_i(1) == 0 && u_i(2) == 0
-                    % Stop
-                    grid = Grid(g_min, g_max, g_nums);
-                    grid.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
-                    grid.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
-                    action_cost = grid.data;
-                elseif u_i(1) ~= 0 && u_i(2) ~= 0
-                    action_cost = ones(size(next_state{1})) .* -sqrt(2);
-                else
-                    action_cost = ones(size(next_state{1})) .* -1;
-                end
-                
-                r_i = action_cost + penalty_obstacle + penalty_outside;
+                % Compute: r(x,u) = w^T * phi(x,u)
+                %   where the reward is -inf if the action takes the
+                %   agent outside of the grid and = 0 else.
+                r_i = obj.w1 .* phi_g + w2 .* phi_o;
                 r_fun(num2str(u_i)) = r_i;
+                
+                % === plot reward landscpe === %
+                % surf(obj.reward_info.g.xs{1},obj.reward_info.g.xs{2}, r_i)
+                % colorbar
+                % === plot reward landscpe === %
             end
             
             % Compute value function
@@ -276,7 +294,7 @@ classdef MDPHumanBelief3D < handle
                 q_fun(num2str(u_i)) = q;
             end
         end
-        
+
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
             q_fun = obj.q_funs{theta_idx};
@@ -316,49 +334,6 @@ classdef MDPHumanBelief3D < handle
             title(strcat("Optimal policy for theta=", num2str(theta_idx),". Color at state => opt control"));
         end
         
-        %% Plots the probability of each action taken starting at init_z and under 
-        %  the probability distribution conditioned on the trueTheta.
-        function plot_pu_given_x(obj, init_z, thetas, trueThetaIdx)
-            figure
-            hold on
-            % plot true goal.
-            scatter(thetas{trueThetaIdx}(1), ...
-                    thetas{trueThetaIdx}(2), ...
-                    'r', 'filled');
-            
-            % plot obstacles.
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    rectangle('Position',obs_info)
-                end
-            end
-            
-            % plot init cond.
-            scatter(init_z{1}, init_z{2}, 'b', 'filled');
-
-            sum_pus = 0.0;
-            controls_text = {'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'};
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-                pu = obj.pugivenxtheta(u_i, init_z, obj.q_funs{trueThetaIdx});
-                sum_pus = sum_pus + pu;
-                fprintf(strcat('P(u = ',controls_text{i},') = ',num2str(pu),'\n'));
-                znext = obj.dynamics(init_z,u_i);
-                scatter(znext{1}, znext{2}, 'b');
-                t = text(znext{1}-0.05, znext{2}+0.05, strcat('P(',controls_text{i},') : ',num2str(pu)));
-                t.Color = [0,0,1];
-                
-                t = text(znext{1}-0.05, znext{2}-0.1, ...
-                    strcat('b(g1|',controls_text{i},') : ',num2str(znext{3})));
-                t.Color = [1,0,0];
-            end
-            fprintf("sum of pu's = %f\n", sum_pus);
-
-            xlim([-4,4]);
-            ylim([-4,4]);
-        end
-        
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy_from_x0(obj, xinit, theta_idx)
             q_fun = obj.q_funs{theta_idx};
@@ -371,12 +346,16 @@ classdef MDPHumanBelief3D < handle
             [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
             
             % Colors for each theta
-            if theta_idx == 1
-                traj_color = [176, 0, 0]/255;
-            else
-                traj_color = [0, 106, 176]/255; 
-            end
+            num_thetas = length(obj.reward_info.thetas);
             scale = obj.gdisc(1);
+            
+            traj_start_color = [176, 0, 0]/255;
+            traj_end_color = [0, 106, 176]/255; 
+            rs = linspace(traj_start_color(1), traj_end_color(1), num_thetas);
+            gs = linspace(traj_start_color(2), traj_end_color(2), num_thetas);
+            bs = linspace(traj_start_color(3), traj_end_color(3), num_thetas);
+            
+            traj_color = [rs(theta_idx), gs(theta_idx), bs(theta_idx)];
             
             figure
             hold on
@@ -386,7 +365,7 @@ classdef MDPHumanBelief3D < handle
             uopts.SetData(opt_u_idxs);
             xcurr = xinit;
             opt_traj = [[xcurr{1};xcurr{2}]];
-            for t=1:20
+            for t=1:10
                 % plot the current state.
                 scatter(xcurr{1}, ...
                         xcurr{2}, ...
@@ -408,33 +387,19 @@ classdef MDPHumanBelief3D < handle
             g2Color = [38., 138., 240.]/255.;
     
             % g1
-            scatter(obj.reward_info.thetas{1}{1}, ...
-                obj.reward_info.thetas{1}{2}, ...
+            scatter(obj.reward_info.goal(1), ...
+                obj.reward_info.goal(2), ...
                 'linewidth', 2, ...
                 'marker', 'o', ...
                 'markeredgecolor', g1Color, ...
                 'markerfacecolor', g1Color);
             g1Txt = 'g1';
-            t1 = text(obj.reward_info.thetas{1}{1}-0.05, ...
-                        obj.reward_info.thetas{1}{2}-0.3, ...
+            t1 = text(obj.reward_info.goal(1)-0.05, ...
+                        obj.reward_info.goal(2)-0.3, ...
                         0.55, g1Txt);
             t1.FontSize = 11;
             t1.Color = g1Color;
-            
-            % g2
-            scatter(obj.reward_info.thetas{2}{1}, ...
-                obj.reward_info.thetas{2}{2}, ...
-                'linewidth', 2, ...
-                'marker', 'o', ...
-                'markeredgecolor', g2Color, ...
-                'markerfacecolor', g2Color);
-            g2Txt = 'g2';
-            t2 = text(obj.reward_info.thetas{2}{1}-0.2, ...
-                        obj.reward_info.thetas{2}{2}-0.3, ...
-                        0.55, g2Txt);
-            t2.FontSize = 11;
-            t2.Color = g2Color;
-            
+      
             % plot obstacle.
             if obj.has_obs
                 for oi = 1:length(obj.reward_info.obstacles)
@@ -459,6 +424,7 @@ classdef MDPHumanBelief3D < handle
             view(0,90);
             title(strcat("Optimal policy for theta=", num2str(theta_idx),"."));
         end
+        
     end
 end
 
