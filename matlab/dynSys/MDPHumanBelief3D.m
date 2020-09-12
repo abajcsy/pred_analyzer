@@ -23,7 +23,6 @@ classdef MDPHumanBelief3D < handle
     methods
         function obj = MDPHumanBelief3D(z0, reward_info, trueThetaIdx, ...
                                         uThresh, gdisc, gamma, eps, beta, b_range)
-            % MDPHumanBelief2D 
             %   Represents joint dynamics of a 2D point human 
             %   and a 2D discrete belief distribution. The belief is over
             %   two unknown goals, denoted by theta. The dynamics follow 
