@@ -26,16 +26,20 @@ elseif params.trueThetaIdx == 2
 else 
     error('Invalid true theta index: %f!\n', params.trueThetaIdx);
 end
+
 xyoffset = 0.1;
-center = [0; 0; centerPgoal1];
-widths = [(params.gmax(1) - params.gmin(1)) - xyoffset; ...
-          (params.gmax(2) - params.gmin(2)) - xyoffset; 
-          tol];
-params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+% center = [0; 0; centerPgoal1];
+% widths = [(params.gmax(1) - params.gmin(1)) - xyoffset; ...
+%           (params.gmax(2) - params.gmin(2)) - xyoffset; 
+%           tol];
+% params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+
+% Cylinder centered at true goal
+params.initial_value_fun = shapeCylinder(params.g,3, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 15;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -107,22 +111,24 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = false;
+params.obstaclesInReachability = true;
 
-% obs_center = [-1; 1; 0.5];
-% obs_width = [1; ...
-%           1; 
-%           1.0];
-% obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
-% 
-% %% Add obstacles to reachability
-% if existsObstacle
-%     extraArgs.obstacles = reward_info.obstacles;
-% end
-% 
-% if params.obstaclesInReachability
-%     params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
-% end
+% High confidence obstacle
+obs_center = [
+    0;
+    0;
+    (1-0.85)/2 + 0.85
+];
+obs_width = [
+    (params.gmax(1) - params.gmin(1)) - xyoffset;
+    (params.gmax(2) - params.gmin(2)) - xyoffset;
+    (1-0.85)/2];
+obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
+
+if params.obstaclesInReachability
+    params.extraArgs.obstacles = obstacle_fun;
+    params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
+end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;

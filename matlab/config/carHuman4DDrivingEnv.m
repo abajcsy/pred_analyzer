@@ -130,7 +130,7 @@ params.obstaclesInReachability = false;
 %           1.0];
 % obstacle_fun = -1 .* shapeRectangleByCenter(g, obs_center, obs_width);
 % 
-% %% Add obstacles to reachability
+% %% Add obstacles to reachability -- what's this for?
 % if existsObstacle
 %     extraArgs.obstacles = reward_info.obstacles;
 % end

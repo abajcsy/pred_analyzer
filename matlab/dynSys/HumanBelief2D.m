@@ -7,19 +7,21 @@ classdef HumanBelief2D < handle
         num_ctrls % number of discrete controls
         controls % discretized controls
         z0 % initial joint state (x, b)
+        b_range         % (arr) range of belief values to clip to.
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
     end
     
     methods
-        function obj = HumanBelief2D(dt, thetas, num_ctrls, controls, z0)
+        function obj = HumanBelief2D(dt, thetas, num_ctrls, controls, z0, b_range)
             % Construct an instance of Grid.
             obj.dt = dt;
             obj.thetas = thetas;
             obj.num_ctrls = num_ctrls;
             obj.controls = controls;
             obj.z0 = z0;
+            obj.b_range = b_range;
             
         end
         
@@ -37,6 +39,7 @@ classdef HumanBelief2D < handle
             b1 = obj.pugivenxtheta(u, x, obj.thetas(2)) .* (1-b);
             normalizer = b0 + b1;
             bnext = b0 ./ normalizer;
+            bnext = min(max(bnext, obj.b_range(1)), obj.b_range(2));
         end
         
         function pu = pugivenxtheta(obj,u,x,theta)

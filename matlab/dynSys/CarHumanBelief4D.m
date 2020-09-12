@@ -19,12 +19,14 @@ classdef CarHumanBelief4D < handle
         vel             % (float) fixed velocity of car
         dt              % (float) time discretization
         gdisc           % (arr) discretization resolution in x,y,phi,b(th=1)
+        b_range         % (arr) range of belief values to clip to.
+
     end
     
     methods
         function obj = CarHumanBelief4D(z0, reward_info, trueThetaIdx, ...
                                         uThresh, gdisc, gnums, gamma, ...
-                                        eps, beta, vel, dt)
+                                        eps, beta, vel, dt, b_range)
             % CARHUMANBELIEF4D
             %   Represents joint dynamics of a 3D human-driven car 
             %   and a 2D discrete belief distribution. The belief is over
@@ -72,6 +74,7 @@ classdef CarHumanBelief4D < handle
             obj.vel = vel;
             obj.dt = dt;
             obj.gdisc = gdisc;
+            obj.b_range = b_range;
             
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
@@ -141,6 +144,7 @@ classdef CarHumanBelief4D < handle
             b1 = obj.pugivenxtheta(u, z, obj.q_funs{2}) .* (1-z{4});
             normalizer = b0 + b1;
             bnext = b0 ./ normalizer;
+            bnext = min(max(bnext, obj.b_range(1)), obj.b_range(2));
         end
         
         %% Mask over states for each control denoting if that control 

@@ -8,6 +8,7 @@ classdef MDPHumanBelief3DEuclid_K < handle
         z0 % initial joint state z = (x, y, b(theta_1))
         uThresh % threshold probability for sufficiently likely controls
         trueThetaIdx % true human intent parameter. 
+        b_range         % (arr) range of belief values to clip to.
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
@@ -15,7 +16,7 @@ classdef MDPHumanBelief3DEuclid_K < handle
     
     methods
         function obj = MDPHumanBelief3DEuclid_K(z0, thetas, trueThetaIdx, ...
-                uThresh, gdisc)
+                uThresh, gdisc, b_range)
             % Construct an instance of Grid.
             obj.thetas = thetas;
             obj.controls = obj.generate_controls_mdp(gdisc);
@@ -23,6 +24,7 @@ classdef MDPHumanBelief3DEuclid_K < handle
             obj.z0 = z0;
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
+            obj.b_range = b_range;
         end
         
         function znext = dynamics(obj,z,u)
@@ -40,6 +42,7 @@ classdef MDPHumanBelief3DEuclid_K < handle
             b1 = obj.pugivenxtheta(u, z, obj.thetas{2}) .* (1-z{3});
             normalizer = b0 + b1;
             bnext = b0 ./ normalizer;
+            bnext = min(max(bnext, obj.b_range(1)), obj.b_range(2));
         end
         
         function likelyMasks = getLikelyMasks(obj, z)

@@ -5,9 +5,9 @@ close all
 
 %% Load all the parameters for this computation!
 %  See possible configuration files and create new ones in /matlab/config/
-% params = mdpHuman3DSimpleEnv();
+params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-params = carHuman4DDrivingEnv();
+% params = carHuman4DDrivingEnv();
 
 %% Sanity check -- Plot the opt control policies?
 % params.dyn_sys.plot_opt_policy(1);

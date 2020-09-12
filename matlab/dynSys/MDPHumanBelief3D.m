@@ -14,6 +14,7 @@ classdef MDPHumanBelief3D < handle
         has_obs         % (bool) If this environment has obstacles or not.
         beta            % (float) beta \in [0, inf) which governs variance of likelihood model.
         gdisc           % (arr) discretization resolution in x,y,b(th=1)
+        b_range         % (arr) range of belief values to clip to.
         
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
@@ -21,7 +22,7 @@ classdef MDPHumanBelief3D < handle
     
     methods
         function obj = MDPHumanBelief3D(z0, reward_info, trueThetaIdx, ...
-                                        uThresh, gdisc, gamma, eps, beta)
+                                        uThresh, gdisc, gamma, eps, beta, b_range)
             % MDPHumanBelief2D 
             %   Represents joint dynamics of a 2D point human 
             %   and a 2D discrete belief distribution. The belief is over
@@ -54,6 +55,7 @@ classdef MDPHumanBelief3D < handle
             obj.reward_info = reward_info;
             obj.beta = beta;
             obj.gdisc = gdisc;
+            obj.b_range = b_range;
             
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
@@ -99,6 +101,7 @@ classdef MDPHumanBelief3D < handle
             b1 = obj.pugivenxtheta(u, z, obj.q_funs{2}) .* (1-z{3});
             normalizer = b0 + b1;
             bnext = b0 ./ normalizer;
+            bnext = min(max(bnext, obj.b_range(1)), obj.b_range(2));
         end
         
         %% Mask over states for each control denoting if that control 
@@ -269,10 +272,46 @@ classdef MDPHumanBelief3D < handle
             isInvalid = (sum_exp == 0);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
+                next_state = obj.physical_dynamics(state_grid, u_i);
                 q_i = q_fun(num2str(u_i)).data;
                 q_i(isInvalid) = 0;
                 q = Grid(g_min, g_max, g_nums);
-                q.SetData(q_i);
+                
+                if u_i(1)==0 && u_i(1)==0 % Ensure stop action is only equally likely if at goal.
+                    q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+                    q.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+                end
+                
+                % -inf if moving outside grid or into obstacle
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+                                  (penalty_outside_mask==1) .* -obj.nearInf; 
+                              
+                if obj.has_obs
+                    penalty_obstacle_mask = 0 .* state_grid{1};
+                    for oi = 1:length(obj.reward_info.obstacles)
+                        obs_info = obj.reward_info.obstacles{oi};
+                        obs_min = obs_info(1:2);
+                        obs_max = obs_info(1:2) + obs_info(3:4);
+
+                        % -inf if moving into obstacle or inside of an obstacle rn.
+                        penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+                                (next_state{2} >= obs_min(2)) & ...
+                                (next_state{1} <= obs_max(1)) & ...
+                                (next_state{2} <= obs_max(2)); 
+                        penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+                    end
+                    penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+                                        (penalty_obstacle_mask==1) .* -obj.nearInf;
+                    else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle = zeros(size(state_grid{1}));
+                end
+                
+                q.SetData(q_i + penalty_obstacle + penalty_outside); 
                 q_fun(num2str(u_i)) = q;
             end
         end
