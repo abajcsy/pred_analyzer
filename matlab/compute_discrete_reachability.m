@@ -5,9 +5,14 @@ close all
 
 %% Load all the parameters for this computation!
 %  See possible configuration files and create new ones in /matlab/config/
+
+% === Setups where joint state includes belief. === %
 params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
 % params = carHuman4DDrivingEnv();
+
+% === Setups where joint state includes direct parameter vals. === %
+% params = mdpHumanSGD3DSimpleEnv();
 
 %% Sanity check -- Plot the opt control policies?
 % params.dyn_sys.plot_opt_policy(1);
@@ -35,6 +40,29 @@ fprintf("Computing opt traj...\n");
                                   params.uMode, ...
                                   params.extraArgsCtrl);
 
+% ====================================== %
+hold on
+pt = plot3(traj(1,:), traj(2,:), traj(3,:), '-o');
+pt.LineWidth = 2;
+pt.MarkerFaceColor = 'b';
+pt.MarkerEdgeColor = 'b';
+hold on
+for oi = 1:length(params.reward_info.obstacles)
+    obs_info = params.reward_info.obstacles{oi};
+    obs_min = obs_info(1:2);
+
+    x_min = obs_min(1);
+    y_min = obs_min(2);
+    p_min = 0;
+    l = [obs_info(3), ...
+        obs_info(4), ...
+        1];
+    plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+end
+xlim([-4,4])
+ylim([-4,4])
+% ====================================== %
+                              
 %% Plot optimal trajectory and value functions
 if params.plot
     compType = 'conf';

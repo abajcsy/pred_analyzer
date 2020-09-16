@@ -22,11 +22,12 @@ xyoffset = 0.1;
 % params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 % Cylinder centered at true goal
-params.initial_value_fun = shapeCylinder(params.g,3, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
+params.initial_value_fun = shapeCylinder(params.g,3,...
+    [params.thetas{params.trueThetaIdx}, 0.5], 0.5);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 40;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -58,7 +59,12 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {-0.2105, -1.8947, 0.1};%{0,0,0.1};%{0.8,-2,0.5}; %{-2.2, 0, 0.1}; %{0.8,-2,0.1}; 
+params.initial_state = {-0.2105, -1.8947, 0.1}; % {0.8,-2,0.1};
+%{-0.2105, -1.8947, 0.1}, 
+%{0,0,0.1};
+%{0.8,-2,0.5}; 
+%{-2.2, 0, 0.1}; 
+%{0.8,-2,0.1}; 
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 
@@ -111,7 +117,7 @@ obs_center = [
 obs_width = [
     (params.gmax(1) - params.gmin(1)) - xyoffset;
     (params.gmax(2) - params.gmin(2)) - xyoffset;
-    (1-0.85)];
+    0.1]; %(1-0.85)];
 obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
 
 if params.obstaclesInReachability
