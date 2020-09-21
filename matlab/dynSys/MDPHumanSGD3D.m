@@ -20,12 +20,15 @@ classdef MDPHumanSGD3D < handle
         grid3d          % (struct) Grid structure for joint state space.
         interp_Qfuns    % (matrix) nx * ny * nu * ntheta matrix of Q-values
         accuracy        % (string) accuracy of numeric derivatives
+        
+        obs_padding  % (float) scales up or down the obstacle feature
     end
     
     methods
         function obj = MDPHumanSGD3D(z0, reward_info, trueTheta, ...
                                         uThresh, gdisc, gamma, ...
-                                        eps, alpha, w1, grid3d, accuracy)
+                                        eps, alpha, w1, grid3d, ...
+                                        accuracy, obs_padding)
             % MDPHumanSGD3D 
             %   Represents joint dynamics of a 2D point human 
             %   and an unknown reward parameter. The reward parameter 
@@ -97,6 +100,7 @@ classdef MDPHumanSGD3D < handle
             obj.w1 = w1;
             obj.grid3d = grid3d;
             obj.accuracy = accuracy;
+            obj.obs_padding = obs_padding;
             
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
@@ -150,6 +154,47 @@ classdef MDPHumanSGD3D < handle
                                    
             obj.interp_Qfuns = interpn(xs,ys,us,ts,all_Qfuns,...
                                     interp_xs,interp_ys,interp_us,interp_ts);
+                                
+                                
+            % ===== DEBUGGING! ===== %
+%             uidx = 7; % 7 = right action, 4 = left action
+%             z1 = {-2, -1, -1};
+%             z2 = {-2, -1, -0.5};
+%             z3 = {-2, -1, 0};
+%             z4 = {-2, -1, 0.5};
+%             z5 = {-2, -1, 1};
+%             qth1 = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z1));
+%             qth2 = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z2));
+%             qth3 = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z3));
+%             qth4 = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z4));
+%             qth5 = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z5));
+%             plot([0,0.25,0.5,0.75,1], [qth1, qth2, qth3, qth4, qth5]);
+%             bla = 1;
+
+            % ======= PLOT THE Q-func @ x for all u and theta ====== %
+            debugging_qs = zeros([length(obj.controls), length(0:obj.gdisc(3):1)]);
+            for uidx = 1:length(obj.controls)
+                thidx = 1;
+                for th = 0:obj.gdisc(3):1
+                    z = {-3,-1,th}; %{-2, -1, th};
+                    qth = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z));
+                    debugging_qs(uidx, thidx) = qth;
+                    thidx = thidx + 1;
+                end
+            end
+
+            [U,T] = meshgrid(0:obj.gdisc(3):1,1:1:length(obj.controls));
+            surf(U,T,debugging_qs);
+            yticklabels({'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'});
+            xticks([0,0.5,1]);
+            yticks([1,2,3,4,5,6,7,8,9]);
+            xlabel('theta');
+            ylabel('action');
+            zlabel('Q(x=-2, y=-1, u, theta)');
+            grid on;
+            set(gcf, 'color', 'w')
+            box on;
+            % ===== DEBUGGING! ===== %
         end
         
         %% Joint dynamics zdot = [xdot, bdot].
@@ -174,7 +219,7 @@ classdef MDPHumanSGD3D < handle
         %% Performs SGD update on weight parameter
         %   theta_n = theta_n-1 + \alpha * \nabla_theta Q(x,u,theta_n-1)
         %  Uses a finite-difference approximation to \nabla_theta Q
-        function theta_n = sgd(obj,u,z)
+        function [theta_n, dQ_final] = sgd(obj,u,z)
            
             % Find index of this control in set of controls.
             mat_ctrls = reshape(cell2mat(obj.controls), [2,length(obj.controls)]);
@@ -196,7 +241,7 @@ classdef MDPHumanSGD3D < handle
             deriv_grid = createGrid(low,up,N);
             deriv_dim = 4;          % taking spatial gradient of the theta dim
             generateAll = 0;        % ignore all possible second order upwind approximations.
-            
+
             % Choose fidelty of numerical approximation to gradient. 
             if strcmp(obj.accuracy, 'low')
                 [derivQ_L, derivQ_R] = ...
@@ -216,7 +261,7 @@ classdef MDPHumanSGD3D < handle
 
             % Numerically approximate: \nabla_theta Q(x,u,theta_n-1)
             dQ = squeeze(derivQ_central(:,:,uidx,:)); % squeeze to remove dim of size = 1
-            
+
             % Extract all theta values.
             theta = z{3};
             
@@ -267,13 +312,25 @@ classdef MDPHumanSGD3D < handle
         % state space with the obstacle-feature for each (x,y) pair.
         function obs_feature = compute_obs_feature(obj, reward_info)
             obs_feature = [];
+            state_grid = reward_info.g.xs;
             for oi = 1:length(reward_info.obstacles)
                     obs_info = reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                    obs_max = obs_info(1:2) + obs_info(3:4);
+                    obs_min = obs_info(1:2) - ones(size(obs_info(1:2)))*obj.obs_padding;
+                    obs_max = obs_info(1:2) + obs_info(3:4) + ones(size(obs_info(1:2)))*obj.obs_padding;
                     obs_feature_curr = ...
                         shapeRectangleByCorners(reward_info.g, ...
                                                 obs_min, obs_max);
+                                             
+                    % convert the signed distance into a "bump distance"
+                    % where phi(x,u) = 0 if outside obstacle
+                    % and   phi(x,u) = signedDist inside obstacle.
+                    obs_mask = (state_grid{1} >= obs_min(1)) & ...
+                        (state_grid{2} >= obs_min(2)) & ...
+                        (state_grid{1} <= obs_max(1)) & ...
+                        (state_grid{2} <= obs_max(2)); 
+                    
+                    obs_feature_curr = obs_feature_curr .* obs_mask;
+                    
                     % combine all obstacle signed distance functions.
                     if isempty(obs_feature)
                         obs_feature = obs_feature_curr;
@@ -308,8 +365,8 @@ classdef MDPHumanSGD3D < handle
                 phi_o = eval_u(obj.reward_info.g, obj.obs_feature, next_points);
                 
                 % Set reward to -inf if moving outside grid
-                phi_g(isnan(phi_g)) = -obj.nearInf;
-                phi_o(isnan(phi_o)) = -obj.nearInf;
+%                 phi_g(isnan(phi_g)) = -obj.nearInf;
+%                 phi_o(isnan(phi_o)) = -obj.nearInf;
                 
                 phi_g = reshape(phi_g, g_nums(1), g_nums(2));
                 phi_o = reshape(phi_o, g_nums(1), g_nums(2));
@@ -317,12 +374,14 @@ classdef MDPHumanSGD3D < handle
                 % Compute: r(x,u) = w^T * phi(x,u)
                 %   where the reward is -inf if the action takes the
                 %   agent outside of the grid and = 0 else.
-                r_i = obj.w1 .* phi_g + w2 .* phi_o;
+                %r_i = obj.w1 .* phi_g + w2 .* phi_o;
+                r_i = (1-w2) .* phi_g + w2 .* phi_o;
                 r_fun(num2str(u_i)) = r_i;
                 
                 % === plot reward landscpe === %
-                % surf(obj.reward_info.g.xs{1},obj.reward_info.g.xs{2}, r_i)
-                % colorbar
+%                 surf(obj.reward_info.g.xs{1},obj.reward_info.g.xs{2}, r_i)
+%                 colorbar
+%                 bla=1;
                 % === plot reward landscpe === %
             end
             
@@ -396,11 +455,19 @@ classdef MDPHumanSGD3D < handle
 
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
-            q_fun = obj.q_funs{theta_idx};
+            %q_fun = obj.q_funs{theta_idx};
+            q_fun = obj.interp_Qfuns(:,:,:,theta_idx);
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+                        
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
-                q_i = q_fun(num2str(u_i)).data;
+                
+                % Find index of this control in set of controls.
+                mat_ctrls = reshape(cell2mat(obj.controls), [2,length(obj.controls)]);
+                diff = abs(mat_ctrls - u_i');
+                uidx = find(sum(diff,1) < 0.0001);
+
+                q_i = q_fun(:,:,uidx,:); %q_fun(num2str(u_i)).data;
                 all_q_vals(:,:,i) = q_i;
             end
             [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);

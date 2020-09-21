@@ -34,7 +34,7 @@ max_iter = 10;
 theta_target = 0.9;
 
 %% Maximize the Qfunction.
-zmax_init = {-2,-1,0.1};
+zmax_init = {-2,-1, 0.1};
 zmax = zmax_init;
 z_traj_max = [];
 z_traj_max(1:num_dims, end+1) = cell2mat(zmax_init)';
@@ -52,7 +52,7 @@ while (zmax{end} < theta_target)
         % == Uncomment this if you want to maximize the Q-function: == %
         %                   u* = argmax_u Q(x,u,g)
         if dist < min_diff
-            min_diff = dist
+            min_diff = dist;
             min_u = u;
         end
         % ============================================================ %

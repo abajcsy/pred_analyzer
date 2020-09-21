@@ -9,7 +9,7 @@ params.bdims = 3; % dimension(s) which contain the belief
 
 %% Time vector
 t0 = 1;
-num_timesteps = 15;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -17,7 +17,7 @@ params.uMode = "min";       % min or max
 params.uThresh = 0.0;       % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
-params.plot = true;         % Visualize the BRS and the optimal trajectory?
+params.plot = false;         % Visualize the BRS and the optimal trajectory?
 
 %% Joint Dynamics Setup.
 params.thetas = {0,0.5,1}; % discrete set of thetas to precompute Q-func for
@@ -39,9 +39,6 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 params.uMode = "min"; % min or max
 params.uThresh = 0.0; % threshold on P(u | x, g)
 
-%% Plotting?
-params.plot = true;        % Visualize the BRS and the optimal trajectory?
-
 %% Pack Reward Info
 
 % 2D Grid for computing Q-function.
@@ -50,7 +47,7 @@ g_phys = createGrid(params.gmin(1:2)', ...
                     params.gnums(1:2)');
 params.reward_info.g = g_phys; 
 params.reward_info.goal = [-2; 2]; 
-params.reward_info.goalRad = 1.3;
+params.reward_info.goalRad = 0.5; %1.3;
 
 % Obstacles used in Q-function computation.
 % Axis-aligned rectangular obstacle convention is:
@@ -66,7 +63,8 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {-2, -1, 0.1};
+params.initial_state = {1, -1, 0.1};
+% {-2, -1, 0.1}
 
 % Params for Value Iteration. 
 params.gamma = 0.98; 
@@ -80,20 +78,22 @@ params.vel = 0.6;
 params.dt = gdisc3D(1)/params.vel;
 
 % SGD update step.
-params.alpha = 0.001;
-params.accuracy = 'medium'; % valid: 'low', 'medium', 'high'
-                                    
+params.alpha = 0.01;
+params.accuracy = 'high'; % valid: 'low', 'medium', 'high'
+params.obs_padding = 0.5; % pads the size of the obstacle. 
+
 params.dyn_sys = MDPHumanSGD3D(params.initial_state, ...
-                                    params.reward_info, ...
-                                    params.trueTheta, ...
-                                    params.uThresh, ...
-                                    gdisc3D, ...
-                                    params.gamma, ...
-                                    params.eps, ...
-                                    params.alpha, ...
-                                    params.w1, ...
-                                    params.g, ...
-                                    params.accuracy);
+                                params.reward_info, ...
+                                params.trueTheta, ...
+                                params.uThresh, ...
+                                gdisc3D, ...
+                                params.gamma, ...
+                                params.eps, ...
+                                params.alpha, ...
+                                params.w1, ...
+                                params.g, ...
+                                params.accuracy, ...
+                                params.obs_padding);
                                 
 %% Pack problem parameters
 params.schemeData.grid = params.g;
