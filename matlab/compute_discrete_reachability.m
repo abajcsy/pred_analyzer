@@ -7,9 +7,10 @@ close all
 %  See possible configuration files and create new ones in /matlab/config/
 
 % === Setups where joint state includes belief. === %
-params = mdpHuman3DSimpleEnv();
+% params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
 % params = carHuman4DDrivingEnv();
+params = carHuman4DDrivingFullEnv();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -59,8 +60,8 @@ for oi = 1:length(params.reward_info.obstacles)
         1];
     plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
 end
-xlim([-4,4])
-ylim([-4,4])
+xlim([params.gmin(1),params.gmax(1)])
+ylim([params.gmin(2),params.gmax(2)])
 % ====================================== %
                               
 %% Plot optimal trajectory and value functions

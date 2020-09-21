@@ -1,14 +1,14 @@
-function params = carHuman4DDrivingEnv()
+function params = carHuman4DDrivingFullEnv()
 
 %% Grid setup
-params.gmin = [-4, -4, 0, 0];
-params.gmax = [4, 4, 2*pi, 1];
+params.gmin = [-6.5, -6.5, 0, 0];
+params.gmax = [6.5, 6.5, 2*pi, 1];
 params.gnums = [20, 20, 12, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = 4; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
-params.thetas = {[-3.6, 1, pi], [1, 3.6, pi/2]};
+params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
@@ -18,11 +18,13 @@ if params.trueThetaIdx == 1
     % human is optimizing for theta = 1, then target is 
     %       b(theta = 1) = 0.9
     centerPgoal1 = 0.9;
+    p_initial = 0.1;
 elseif params.trueThetaIdx == 2
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 2, then target is 
     %       b(theta = 1) = 0.1 --> b(theta = 2) = 0.9
     centerPgoal1 = 0.1;
+    p_initial = 0.9;
 else 
     error('Invalid true theta index: %f!\n', params.trueThetaIdx);
 end
@@ -36,18 +38,18 @@ widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
 % center = [params.thetas{params.trueThetaIdx} centerPgoal1];
 % widths = [0.5; ...
 %           0.5; ...
-%           pi; ...
+%           pi/4; ...
 %           tol];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 100;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "min"; % min or max
-params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.2; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -63,10 +65,10 @@ params.reward_info.g = g_phys;
 % Obstacles used in Q-function computation.
 % Axis-aligned rectangular obstacle convention is:
 %       [lower_x, lower_y, width, height]
-params.reward_info.obstacles = {[-4, -4, 2, 2]...
-                                [2, -4, 2, 2], ...
-                                [-4, 2, 2, 2], ...
-                                [2, 2, 2, 2]};
+params.reward_info.obstacles = {[0-6.5, 0-6.5, 3, 3]...
+                                [0-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 0-6.5, 3, 3]};
                      
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
@@ -78,7 +80,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0.6, -3.5, pi/2, 0.5}; 
+params.initial_state = {11.5-6.5, 8.25-6.5, pi, 0.5}; 
 % params.initial_state = {1.7, -3.5, pi/2, 0.5};
 % params.initial_state = {3, 1, pi, 0.5};
 % params.initial_state = {0, 0, 0, 0.5};
@@ -97,11 +99,16 @@ params.beta = 1;
 gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
-params.vel = 1; % Car's driving speed (m/s)
+params.vel = 8;
+params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
 params.dt = gdisc4D(1)/params.vel;
 
+% range of belief values
+b_space = linspace(params.gmin(params.bdims),params.gmax(params.bdims),params.gnums(params.bdims));
+params.b_range = [b_space(2) b_space(numel(b_space)-1)];
+
 % MDP human.
-params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
+params.dyn_sys = CarHumanBelief4DFull(params.initial_state, ...
                                     params.reward_info, ...
                                     params.trueThetaIdx, ...
                                     params.uThresh, ...
@@ -110,8 +117,9 @@ params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
                                     params.gamma, ...
                                     params.eps, ...
                                     params.beta, ...
-                                    params.vel, ...
-                                    params.dt);
+                                    params.v_range, ...
+                                    params.dt, ...
+                                    params.b_range);
          
 %% Pack problem parameters
 params.schemeData.grid = params.g;

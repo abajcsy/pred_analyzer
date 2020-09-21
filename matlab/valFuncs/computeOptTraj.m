@@ -113,6 +113,8 @@ while iter < tauLength
 %     optVal
 %     ctrl_ind
     % Apply the optimal control.
+%     fprintf('Value of current state at t=-%f: %f ...\n', iter, ...
+%             optVal);
     ctrl = dynSys.controls{ctrl_ind};
     z = dynSys.dynamics(z,ctrl);
     if ~extraArgs.interpolate
