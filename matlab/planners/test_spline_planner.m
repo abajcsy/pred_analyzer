@@ -9,14 +9,14 @@ g2d = createGrid(gmin, gmax, gnums);
 %% Trajectory Info
 num_waypts = 8;
 horizon = 8;
-% goal = [5.6, -2.25, 0]; %[-3.6, 1, pi]; % g1
-goal = [2.25, 5.6, pi/2]; %[1, 3.6, pi/2]; % g2
+% goal = [5.6, -2.25, 0, 0.01]; %[-3.6, 1, pi]; % g1
+goal = [2.25, 5.6, pi/2, 0.01]; %[1, 3.6, pi/2]; % g2
 
 % 13 meters / second ~= 30 mph
 % 8 meters / second ~= 18 mph (is the average speed at intersection) 
 max_linear_vel = 8.; 
 max_angular_vel = 1.;
-footprint_rad = 0.2794; 
+footprint_rad = 0.2794; % note: this isn't used rn.... 
 
 %% Car info.
 car_len = 3; %4.5; % in m

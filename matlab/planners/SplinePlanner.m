@@ -50,7 +50,7 @@ classdef SplinePlanner
         
         %% Plans a path from start to goal. 
         function opt_spline = plan(obj, start, goal)
-            opt_reward = -100000000000000;
+            opt_reward = -100000000000000.0;
             opt_spline = {};
             curr_spline = {};
             
@@ -94,6 +94,7 @@ classdef SplinePlanner
         function checked_spline = sanity_check_spline(obj, curr_spline)
             checked_spline = curr_spline;
             
+            % TODO: can optimize this by MATLAB-ifying it. 
             for i=1:obj.num_waypts 
                 x = checked_spline{1}(i);
                 y = checked_spline{2}(i);
