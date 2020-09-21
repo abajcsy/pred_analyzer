@@ -9,38 +9,39 @@ params.bdims = 4; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
-params.trueThetaIdx = 1;
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
-tol = 0.2;
+tol = 0.1;
 if params.trueThetaIdx == 1
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 1, then target is 
     %       b(theta = 1) = 0.9
-    centerPgoal1 = 0.9;
+    centerPgoal1 = 0.95;
     p_initial = 0.1;
 elseif params.trueThetaIdx == 2
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 2, then target is 
     %       b(theta = 1) = 0.1 --> b(theta = 2) = 0.9
-    centerPgoal1 = 0.1;
+    centerPgoal1 = 0.05;
     p_initial = 0.9;
 else 
     error('Invalid true theta index: %f!\n', params.trueThetaIdx);
 end
 xyoffset = 0.1;
 phioffset = 0.01;
-center = [0; 0; pi; centerPgoal1];
-widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
-          (params.gmax(2) - params.gmin(2)) + xyoffset; ...
-          (params.gmax(3) - params.gmin(3)) + phioffset; ...
-          tol];
-% center = [params.thetas{params.trueThetaIdx} centerPgoal1];
-% widths = [0.5; ...
-%           0.5; ...
-%           pi/4; ...
+% center = [0; 0; pi; centerPgoal1];
+% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+%           (params.gmax(2) - params.gmin(2)) + xyoffset; ...
+%           (params.gmax(3) - params.gmin(3)) + phioffset; ...
 %           tol];
+center = [params.thetas{params.trueThetaIdx} 0.5];
+widths = [1.0; ...
+          1.0; ...
+          pi/4; ...
+          1.0];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+% params.initial_value_fun = shapeCylinder(params.g,4, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
 
 %% Time vector
 t0 = 1;
@@ -49,7 +50,7 @@ params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "min"; % min or max
-params.uThresh = 0.2; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -130,7 +131,26 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = false;
+params.obstaclesInReachability = true;
+
+% High confidence obstacle
+obs_center = [
+    0;
+    0;
+    pi;
+    centerPgoal1
+];
+obs_width = [
+    (params.gmax(1) - params.gmin(1)) + xyoffset;
+    (params.gmax(2) - params.gmin(2)) + xyoffset;
+    (params.gmax(3) - params.gmin(3)) + xyoffset;
+    0.1];
+obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
+
+if params.obstaclesInReachability
+    params.extraArgs.obstacles = obstacle_fun;
+    params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
+end
 
 % obs_center = [-1; 1; 0.5];
 % obs_width = [1; ...
