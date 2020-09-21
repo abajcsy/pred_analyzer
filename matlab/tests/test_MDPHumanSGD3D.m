@@ -7,10 +7,20 @@ params = mdpHumanSGD3DSimpleEnv();
 % params.dyn_sys.plot_opt_policy(2);
 % params.dyn_sys.plot_opt_policy(3);
 % 
-% xinit = {1,-2.5};
-% params.dyn_sys.plot_opt_policy_from_x0(xinit, 1)
-% params.dyn_sys.plot_opt_policy_from_x0(xinit, 2)
-% params.dyn_sys.plot_opt_policy_from_x0(xinit, 3)
+xinit = {-2,-1,0.1};
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 1)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 2)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 3)
+
+xinit = {0,-1,0.1};
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 1)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 2)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 3)
+
+xinit = {2,-1,0.1};
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 1)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 2)
+params.dyn_sys.plot_opt_policy_from_x0(xinit, 3)
 
 % z0 = {-2, -2, 0}; % TODO: this is kinda funky...?
 z0 = params.g.xs;
