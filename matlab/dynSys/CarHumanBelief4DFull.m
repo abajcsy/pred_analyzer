@@ -107,6 +107,24 @@ classdef CarHumanBelief4DFull < handle
             znext{4} = obj.belief_update(u,z);
         end
         
+        function ctrl = get_ctrl(obj, u)
+            if u == 1
+                vel = 0;
+            else
+                vel = obj.v_range(mod(u,2) + 1);
+            end
+            
+            if u == 1 || u == 2 || u == 3
+                ang_vel = 0;
+            elseif u == 4 || u == 5
+                ang_vel = (2*pi/obj.gnums(3))/obj.dt;
+            else
+                ang_vel = -(2*pi/obj.gnums(3))/obj.dt;
+            end
+                
+            ctrl = [vel, ang_vel];
+        end
+        
         %% Dyanmics of physical states.
         function znext = physical_dynamics(obj, z, u)
             % u \in {'STOP', 'FORWARD', 'FORWARD_CW1', 'FORWARD_CCW1'}

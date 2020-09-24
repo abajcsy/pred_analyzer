@@ -33,7 +33,7 @@ params = carHuman4DDrivingFullEnv();
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
 fprintf("Computing opt traj...\n");
-[traj, traj_tau] = computeOptTraj(params.initial_state, ....
+[traj, traj_tau, ctrls] = computeOptTraj(params.initial_state, ....
                                   params.g, ...
                                   value_funs, ...
                                   tauOut, ...
@@ -87,6 +87,9 @@ if params.plot
                 params.gmin, params.gmax, params.gnums, ...
                 goalSetRad, extraPltArgs);
     
+    % Plot control values
+%     plotControlValues(ctrls, params.dyn_sys);
+    
     % Plot the BRS.
 %     visBRSVideo(params.g, ...
 %                 value_funs, ...
@@ -100,3 +103,23 @@ end
 % save(strcat('e2_b50_finer_grid_brt_',uMode,'_uthresh',num2str(uThresh),'.mat'), 'g', 'gmin', 'gmax', 'gnums', ...
 %     'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
 %     'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
+
+function plotControlValues(ctrls,dynSys)
+    vels = [];
+    ang_vels = [];
+    for i=1:numel(ctrls)
+        ctrl = dynSys.get_ctrl(ctrls{i});
+        vels = [vels ctrl(1)];
+        ang_vels = [ang_vels ctrl(2)];
+    end
+
+    figure
+    plot(vels)
+    xlabel("time")
+    ylabel("velocity")
+
+    figure
+    plot(ang_vels)
+    xlabel("time")
+    ylabel("angular velocity")
+end
