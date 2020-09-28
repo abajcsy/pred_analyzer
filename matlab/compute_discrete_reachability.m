@@ -44,6 +44,7 @@ fprintf("Computing opt traj...\n");
 hold on
 pt = plot3(traj(1,:), traj(2,:), traj(3,:), '-o');
 pt.LineWidth = 2;
+pt.Color = 'k';
 pt.MarkerFaceColor = 'b';
 pt.MarkerEdgeColor = 'b';
 hold on
@@ -61,6 +62,8 @@ for oi = 1:length(params.reward_info.obstacles)
 end
 xlim([-4,4])
 ylim([-4,4])
+box on
+grid on
 % ====================================== %
                               
 %% Plot optimal trajectory and value functions
