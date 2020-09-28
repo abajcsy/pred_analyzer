@@ -1,4 +1,4 @@
-function [traj, traj_tau] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
+function [traj, traj_tau, ctrls] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
 % [traj, traj_tau] = computeOptTraj(g, data, tau, dynSys, extraArgs)
 %   Computes the optimal trajectories given the optimal value function
 %   represented by (g, data), associated time stamps tau, dynamics given in
@@ -40,6 +40,7 @@ end
 tauLength = length(tau)-tEarliest+1;
 traj = nan(g.dim, tauLength);
 traj_tau = [];
+ctrls = cell(1, tauLength-1);
 if iscell(z0)
     traj(:,1) = cell2mat(z0);
 else
@@ -113,7 +114,10 @@ while iter < tauLength
 %     optVal
 %     ctrl_ind
     % Apply the optimal control.
+%     fprintf('Value of current state at t=-%f: %f ...\n', iter, ...
+%             optVal);
     ctrl = dynSys.controls{ctrl_ind};
+    ctrls{iter} = ctrl;
     z = dynSys.dynamics(z,ctrl);
     if ~extraArgs.interpolate
         z = grid.RealToCoords(z);

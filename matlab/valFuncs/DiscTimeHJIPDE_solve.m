@@ -159,8 +159,19 @@ while tidx > 0
         error("uMode not specified or not supported!")
     end
     
+%     v_grid = Grid(extraArgs.g.min, extraArgs.g.max, extraArgs.g.N);
+%     v_grid.SetData(value_fun);
+%     fprintf('Value fun before: %f\n', ...
+%             v_grid.GetDataAtReal({-1.053,4,0.9474}));
     value_fun = max(value_fun, obstacles);
-
+%     v_grid.SetData(value_fun);
+%     fprintf('Value fun after: %f\n', ...
+%             v_grid.GetDataAtReal({-1.053,4,0.9474}));
+%     v_grid.SetData(obstacles);
+%     fprintf('Obs values: %f %f %f\n', ...
+%             v_grid.GetDataAtReal({-1.053,4,0.8421}),...
+%             v_grid.GetDataAtReal({-1.053,4,0.8947}),...
+%             v_grid.GetDataAtReal({-1.053,4,0.9474}));
     value_funs{tidx} = value_fun;
 
     singleCompEnd = toc(singleCompStart); 

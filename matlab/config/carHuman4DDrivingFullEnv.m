@@ -1,48 +1,51 @@
-function params = carHuman4DDrivingEnv()
+function params = carHuman4DDrivingFullEnv()
 
 %% Grid setup
-params.gmin = [-4, -4, 0, 0];
-params.gmax = [4, 4, 2*pi, 1];
+params.gmin = [-6.5, -6.5, 0, 0];
+params.gmax = [6.5, 6.5, 2*pi, 1];
 params.gnums = [20, 20, 12, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = 4; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
-params.thetas = {[-3.6, 1, pi], [1, 3.6, pi/2]};
-params.trueThetaIdx = 1;
+params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
-tol = 0.2;
+tol = 0.1;
 if params.trueThetaIdx == 1
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 1, then target is 
     %       b(theta = 1) = 0.9
-    centerPgoal1 = 0.9;
+    centerPgoal1 = 0.95;
+    p_initial = 0.1;
 elseif params.trueThetaIdx == 2
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 2, then target is 
     %       b(theta = 1) = 0.1 --> b(theta = 2) = 0.9
-    centerPgoal1 = 0.1;
+    centerPgoal1 = 0.05;
+    p_initial = 0.9;
 else 
     error('Invalid true theta index: %f!\n', params.trueThetaIdx);
 end
 xyoffset = 0.1;
 phioffset = 0.01;
-center = [0; 0; pi; centerPgoal1];
-widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
-          (params.gmax(2) - params.gmin(2)) + xyoffset; ...
-          (params.gmax(3) - params.gmin(3)) + phioffset; ...
-          tol];
-% center = [params.thetas{params.trueThetaIdx} centerPgoal1];
-% widths = [0.5; ...
-%           0.5; ...
-%           pi; ...
+% center = [0; 0; pi; centerPgoal1];
+% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+%           (params.gmax(2) - params.gmin(2)) + xyoffset; ...
+%           (params.gmax(3) - params.gmin(3)) + phioffset; ...
 %           tol];
+center = [params.thetas{params.trueThetaIdx} 0.5];
+widths = [1.0; ...
+          1.0; ...
+          pi/4; ...
+          1.0];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+% params.initial_value_fun = shapeCylinder(params.g,4, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 100;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -63,10 +66,10 @@ params.reward_info.g = g_phys;
 % Obstacles used in Q-function computation.
 % Axis-aligned rectangular obstacle convention is:
 %       [lower_x, lower_y, width, height]
-params.reward_info.obstacles = {[-4, -4, 2, 2]...
-                                [2, -4, 2, 2], ...
-                                [-4, 2, 2, 2], ...
-                                [2, 2, 2, 2]};
+params.reward_info.obstacles = {[0-6.5, 0-6.5, 3, 3]...
+                                [0-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 0-6.5, 3, 3]};
                      
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
@@ -78,7 +81,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0.6, -3.5, pi/2, 0.5}; 
+params.initial_state = {11.5-6.5, 8.25-6.5, pi, 0.5}; 
 % params.initial_state = {1.7, -3.5, pi/2, 0.5};
 % params.initial_state = {3, 1, pi, 0.5};
 % params.initial_state = {0, 0, 0, 0.5};
@@ -97,11 +100,16 @@ params.beta = 1;
 gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
-params.vel = 1; % Car's driving speed (m/s)
+params.vel = 8;
+params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
 params.dt = gdisc4D(1)/params.vel;
 
+% range of belief values
+b_space = linspace(params.gmin(params.bdims),params.gmax(params.bdims),params.gnums(params.bdims));
+params.b_range = [b_space(2) b_space(numel(b_space)-1)];
+
 % MDP human.
-params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
+params.dyn_sys = CarHumanBelief4DFull(params.initial_state, ...
                                     params.reward_info, ...
                                     params.trueThetaIdx, ...
                                     params.uThresh, ...
@@ -110,8 +118,9 @@ params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
                                     params.gamma, ...
                                     params.eps, ...
                                     params.beta, ...
-                                    params.vel, ...
-                                    params.dt);
+                                    params.v_range, ...
+                                    params.dt, ...
+                                    params.b_range);
          
 %% Pack problem parameters
 params.schemeData.grid = params.g;
@@ -122,7 +131,26 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = false;
+params.obstaclesInReachability = true;
+
+% High confidence obstacle
+obs_center = [
+    0;
+    0;
+    pi;
+    centerPgoal1
+];
+obs_width = [
+    (params.gmax(1) - params.gmin(1)) + xyoffset;
+    (params.gmax(2) - params.gmin(2)) + xyoffset;
+    (params.gmax(3) - params.gmin(3)) + xyoffset;
+    0.1];
+obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
+
+if params.obstaclesInReachability
+    params.extraArgs.obstacles = obstacle_fun;
+    params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
+end
 
 % obs_center = [-1; 1; 0.5];
 % obs_width = [1; ...

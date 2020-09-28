@@ -7,9 +7,10 @@ close all
 %  See possible configuration files and create new ones in /matlab/config/
 
 % === Setups where joint state includes belief. === %
-params = mdpHuman3DSimpleEnv();
+% params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
 % params = carHuman4DDrivingEnv();
+params = carHuman4DDrivingFullEnv();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -32,7 +33,7 @@ params = mdpHuman3DSimpleEnv();
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
 fprintf("Computing opt traj...\n");
-[traj, traj_tau] = computeOptTraj(params.initial_state, ....
+[traj, traj_tau, ctrls] = computeOptTraj(params.initial_state, ....
                                   params.g, ...
                                   value_funs, ...
                                   tauOut, ...
@@ -60,8 +61,8 @@ for oi = 1:length(params.reward_info.obstacles)
         1];
     plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
 end
-xlim([-4,4])
-ylim([-4,4])
+xlim([params.gmin(1),params.gmax(1)])
+ylim([params.gmin(2),params.gmax(2)])
 box on
 grid on
 % ====================================== %
@@ -89,6 +90,9 @@ if params.plot
                 params.gmin, params.gmax, params.gnums, ...
                 goalSetRad, extraPltArgs);
     
+    % Plot control values
+%     plotControlValues(ctrls, params.dyn_sys);
+    
     % Plot the BRS.
 %     visBRSVideo(params.g, ...
 %                 value_funs, ...
@@ -102,3 +106,23 @@ end
 % save(strcat('e2_b50_finer_grid_brt_',uMode,'_uthresh',num2str(uThresh),'.mat'), 'g', 'gmin', 'gmax', 'gnums', ...
 %     'value_funs', 'tau', 'traj', 'traj_tau', 'uMode', 'initial_value_fun', ...
 %     'schemeData', 'minWith', 'extraArgs', 'thetas', 'trueThetaIdx', 'extraPltArgs');
+
+function plotControlValues(ctrls,dynSys)
+    vels = [];
+    ang_vels = [];
+    for i=1:numel(ctrls)
+        ctrl = dynSys.get_ctrl(ctrls{i});
+        vels = [vels ctrl(1)];
+        ang_vels = [ang_vels ctrl(2)];
+    end
+
+    figure
+    plot(vels)
+    xlabel("time")
+    ylabel("velocity")
+
+    figure
+    plot(ang_vels)
+    xlabel("time")
+    ylabel("angular velocity")
+end

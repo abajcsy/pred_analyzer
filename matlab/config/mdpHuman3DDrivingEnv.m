@@ -29,8 +29,8 @@ end
 
 xyoffset = 0.1;
 % center = [0; 0; centerPgoal1];
-% widths = [(params.gmax(1) - params.gmin(1)) - xyoffset; ...
-%           (params.gmax(2) - params.gmin(2)) - xyoffset; 
+% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+%           (params.gmax(2) - params.gmin(2)) + xyoffset; 
 %           tol];
 % params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 

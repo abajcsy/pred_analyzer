@@ -1,10 +1,11 @@
 function params = mdpHuman3DSimpleEnv()
 
 %% Grid setup
-params.gmin = [-4, -4, 0];
-params.gmax = [4, 4, 1];
-params.gnums = [20, 20, 20];
+params.gmin = [-4.5, -4.5, 0];
+params.gmax = [4.5, 4.5, 1];
+params.gnums = [25, 25, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
+params.extraArgs.g = params.g;
 params.bdims = 3; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
@@ -17,11 +18,11 @@ params.trueThetaIdx = 1;
 tol = 1-0.85;
 centerPgoal1 = (1-0.85)/2 + 0.85;
 xyoffset = 0.1;
-center = [0; 0; centerPgoal1];
-widths = [(params.gmax(1) - params.gmin(1)) - xyoffset; ...
-          (params.gmax(2) - params.gmin(2)) - xyoffset; 
-          tol];
-params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+% center = [0; 0; centerPgoal1];
+% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+%           (params.gmax(2) - params.gmin(2)) + xyoffset; 
+%           tol];
+% params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 % Cylinder centered at true goal
 % xyoffset = 0.1;
@@ -62,12 +63,13 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0,-3,0.1}; % {0.8,-2,0.1};
+params.initial_state = {0,0,0.1};
 %{-0.2105, -1.8947, 0.1}, 
 %{0,0,0.1};
 %{0.8,-2,0.5}; 
 %{-2.2, 0, 0.1}; 
 %{0.8,-2,0.1}; 
+%{0,-3,0.1};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 
@@ -109,24 +111,34 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = false;
+params.obstaclesInReachability = true;
 
-% % High confidence obstacle
-% obs_center = [
-%     0;
-%     0;
-%     (1-0.85)/2 + 0.85
-% ];
-% obs_width = [
-%     (params.gmax(1) - params.gmin(1)) - xyoffset;
-%     (params.gmax(2) - params.gmin(2)) - xyoffset;
-%     (1-0.85)];
-% obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
-% 
-% if params.obstaclesInReachability
-%     params.extraArgs.obstacles = obstacle_fun;
-%     params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
-% end
+% High confidence obstacle
+obs_center = [
+    0;
+    0;
+    (1-0.85)/2 + 0.85
+];
+obs_width = [
+    (params.gmax(1) - params.gmin(1)) - xyoffset;
+    (params.gmax(2) - params.gmin(2)) - xyoffset;
+    0.1]; %(1-0.85)];
+
+obs_center = [
+    0;
+    0;
+    (1-0.85)/2 + 0.85
+];
+obs_width = [
+    (params.gmax(1) - params.gmin(1)) + xyoffset;
+    (params.gmax(2) - params.gmin(2)) + xyoffset;
+    0.1]; %(1-0.85)];
+obstacle_fun = -1 .* shapeRectangleByCenter(params.g, obs_center, obs_width);
+
+if params.obstaclesInReachability
+    params.extraArgs.obstacles = obstacle_fun;
+    params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
+end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
