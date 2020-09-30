@@ -76,9 +76,12 @@ set(gcf, 'color', 'w')
 view(-54, 30);
 
 %% hard-coded control sequence. 
-u_seq = {6,6,6,6,6,6}; % left up
+% stop = 1
 % u_seq = {3,3,3,3,3,3}; % up
+% u_seq = {4,4,4,4,4,4}; % left
+% u_seq = {6,6,6,6,6,6}; % left up
 % u_seq = {7,7,7,7}; % right
+ u_seq = {9,9,9,9,9,9}; % right up
 
 %% Maximize the Qfunction.
 zmax = zmax_init;
