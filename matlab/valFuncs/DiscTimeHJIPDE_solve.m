@@ -116,6 +116,7 @@ while tidx > 0
     % Create grid and set data to value function at t+1
     compute_grid = Grid(g.min, g.max, g.N);
     compute_grid.SetData(value_funs{tidx + 1});
+%     val_t = compute_grid.GetDataAtReal({0.7222, -0.7222, 3.9984, 0.0526})
     
     num_dims = numel(g.N);
 
@@ -182,6 +183,7 @@ while tidx > 0
     if isfield(extraArgs, 'stopInit')
         initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
         initial_idx = initial_idx{1};
+%         value_fun(initial_idx)
         if value_fun(initial_idx) <= 0
             extraOuts.stoptau = tidx;
             fprintf("    Found earliest BRS containing z0!\n");

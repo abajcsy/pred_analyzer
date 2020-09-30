@@ -11,6 +11,8 @@ close all
 % params = mdpHuman3DDrivingEnv();
 % params = carHuman4DDrivingEnv();
 params = carHuman4DDrivingFullEnv();
+% params = mdpHumanConfidence4DSimpleEnv();
+% params = mdpHumanConfidence3DSimpleEnv();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -82,10 +84,17 @@ if params.plot
     traj_tau_real = (traj_tau - ones(size(traj_tau)))*params.dt;
     
     % Plot the optimal traj
-    plotOptTraj(traj, traj_tau_real, ...
+    if isfield(params,"theta")
+        plotOptTraj(traj, traj_tau_real, ...
+                    {params.theta}, 1, ...
+                    params.gmin, params.gmax, params.gnums, ...
+                    goalSetRad, extraPltArgs);
+    else 
+        plotOptTraj(traj, traj_tau_real, ...
                 params.thetas, params.trueThetaIdx, ...
                 params.gmin, params.gmax, params.gnums, ...
                 goalSetRad, extraPltArgs);
+    end
     
     % Plot control values
 %     plotControlValues(ctrls, params.dyn_sys);

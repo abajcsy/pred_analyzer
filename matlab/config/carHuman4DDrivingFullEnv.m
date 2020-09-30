@@ -3,13 +3,13 @@ function params = carHuman4DDrivingFullEnv()
 %% Grid setup
 params.gmin = [-6.5, -6.5, 0, 0];
 params.gmax = [6.5, 6.5, 2*pi, 1];
-params.gnums = [20, 20, 12, 20];
+params.gnums = [10, 10, 12, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
-params.bdims = 4; % dimension(s) which contain the belief
+params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
-params.trueThetaIdx = 2;
+params.trueThetaIdx = 1;
 
 %% Target Set Setup
 tol = 0.1;
@@ -30,16 +30,16 @@ else
 end
 xyoffset = 0.1;
 phioffset = 0.01;
-% center = [0; 0; pi; centerPgoal1];
-% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
-%           (params.gmax(2) - params.gmin(2)) + xyoffset; ...
-%           (params.gmax(3) - params.gmin(3)) + phioffset; ...
-%           tol];
-center = [params.thetas{params.trueThetaIdx} 0.5];
-widths = [1.0; ...
-          1.0; ...
-          pi/4; ...
-          1.0];
+center = [0; 0; pi; centerPgoal1];
+widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+          (params.gmax(2) - params.gmin(2)) + xyoffset; ...
+          (params.gmax(3) - params.gmin(3)) + phioffset; ...
+          tol];
+% center = [params.thetas{params.trueThetaIdx} 0.5];
+% widths = [1.0; ...
+%           1.0; ...
+%           pi/4; ...
+%           1.0];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 % params.initial_value_fun = shapeCylinder(params.g,4, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
 
@@ -49,8 +49,8 @@ num_timesteps = 100;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
-params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "max"; % min or max
+params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -102,10 +102,11 @@ gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 % dt induced by discretization
 params.vel = 8;
 params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
-params.dt = gdisc4D(1)/params.vel;
+params.angular_range = [-4*pi,-2*pi,0,2*pi,4*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
+params.dt = 0.16;%gdisc4D(1)/params.vel;
 
 % range of belief values
-b_space = linspace(params.gmin(params.bdims),params.gmax(params.bdims),params.gnums(params.bdims));
+b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));
 params.b_range = [b_space(2) b_space(numel(b_space)-1)];
 
 % MDP human.
@@ -119,6 +120,7 @@ params.dyn_sys = CarHumanBelief4DFull(params.initial_state, ...
                                     params.eps, ...
                                     params.beta, ...
                                     params.v_range, ...
+                                    params.angular_range, ...
                                     params.dt, ...
                                     params.b_range);
          
@@ -131,7 +133,7 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = true;
+params.obstaclesInReachability = false;
 
 % High confidence obstacle
 obs_center = [
