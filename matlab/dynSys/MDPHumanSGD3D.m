@@ -45,10 +45,13 @@ classdef MDPHumanSGD3D < handle
             %   Dynamics:
             %       zdot = [x + u, 
             %               y + u, 
-            %               theta + alpha * \nabla_theta Q(x,u;theta)]
+            %               theta + alpha * \nabla_theta F(x, u, theta)
             %       where:
-            %           \nabla_theta Q(x,u;theta) 
-            %           is gradient of Q wrt theta for a given (x,u) pair. 
+            %           F(x, u, theta) := 
+            %               Q(x, u, theta) - E_{u ~ P(u | x, theta)}[Q(x,u,theta)]
+            %           and 
+            %           \nabla_theta  F(x, u, theta_n-1)
+            %           is the gradient of F wrt. theta for a given (x,u) pair. 
             %
             %       Q(x,u,theta) is computed via value iteration and the 
             %       reward function information packed into reward_info.
@@ -176,7 +179,7 @@ classdef MDPHumanSGD3D < handle
             for uidx = 1:length(obj.controls)
                 thidx = 1;
                 for th = 0:obj.gdisc(3):1
-                    z = {-3,-1,th}; %{-2, -1, th};
+                    z = {-1,2,th}; %{-2, -1, th};
                     qth = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z));
                     debugging_qs(uidx, thidx) = qth;
                     thidx = thidx + 1;
@@ -217,9 +220,13 @@ classdef MDPHumanSGD3D < handle
         end
         
         %% Performs SGD update on weight parameter
-        %   theta_n = theta_n-1 + \alpha * \nabla_theta Q(x,u,theta_n-1)
-        %  Uses a finite-difference approximation to \nabla_theta Q
-        function [theta_n, dQ_final] = sgd(obj,u,z)
+        %   theta_n = theta_n-1 + \alpha * \nabla_theta F(x,u,theta_n-1)
+        %
+        %   where F(x,u,theta_n-1) = 
+        %       Q(x, u, theta_n-1) - E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)]
+        %
+        %  Uses a finite-difference approximation to \nabla_theta F
+        function [theta_n, dF_final] = sgd(obj,u,z)
            
             % Find index of this control in set of controls.
             mat_ctrls = reshape(cell2mat(obj.controls), [2,length(obj.controls)]);
@@ -233,8 +240,19 @@ classdef MDPHumanSGD3D < handle
             % TODO: most of these lines can be in a precomputation step in
             % the constructor to save time. 
             
+            % Compute: E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
+            for ui=1:length(obj.controls)
+                pu_given_x_theta = obj.pugivenxtheta(u, z);
+                expected_Q = expected_Q + squeeze(obj.interp_Qfuns(:,:,uidx,:)) .* pu_given_x_theta;
+            end
+            
+            % Compute: (Q(x, u, theta_n-1) -  E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
+            grad_func = obj.interp_Qfuns(:,:,uidx,:) - expected_Q;
+            
+            % TODO THIS IS NOT RIGHT (IN TERMS OF DIMENSIONS!!!)
+            
             % Approximate the gradient:
-            %       \partial Q(x,u,theta_n)/\partial theta_n 
+            %   \nabla_theta (Q(x, u, theta_n-1) -  E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
             low = [obj.grid3d.min(1), obj.grid3d.min(2), 1, obj.grid3d.min(3)];
             up = [obj.grid3d.max(1), obj.grid3d.max(2), length(obj.controls), obj.grid3d.max(3)];
             N = [obj.grid3d.N(1), obj.grid3d.N(2), length(obj.controls), obj.grid3d.N(3)];
@@ -244,23 +262,23 @@ classdef MDPHumanSGD3D < handle
 
             % Choose fidelty of numerical approximation to gradient. 
             if strcmp(obj.accuracy, 'low')
-                [derivQ_L, derivQ_R] = ...
-                   upwindFirstFirst(deriv_grid, obj.interp_Qfuns, deriv_dim, generateAll);
+                [derivF_L, derivF_R] = ...
+                   upwindFirstFirst(deriv_grid, grad_func, deriv_dim, generateAll);
             elseif strcmp(obj.accuracy, 'medium')
-                [derivQ_L, derivQ_R ] = ...
-                     upwindFirstENO2(deriv_grid, obj.interp_Qfuns, deriv_dim, generateAll);
+                [derivF_L, derivF_R ] = ...
+                     upwindFirstENO2(deriv_grid, grad_func, deriv_dim, generateAll);
             elseif strcmp(obj.accuracy, 'high')
-                [derivQ_L, derivQ_R ] = ...
-                     upwindFirstENO3(deriv_grid, obj.interp_Qfuns, deriv_dim, generateAll);
+                [derivF_L, derivF_R ] = ...
+                     upwindFirstENO3(deriv_grid, grad_func, deriv_dim, generateAll);
             else
                 error("Invalid accuracy type!\n");
             end
             
             % Compute the central derivative
-            derivQ_central = 0.5 .* (derivQ_L + derivQ_R);
+            derivF_central = 0.5 .* (derivF_L + derivF_R);
 
             % Numerically approximate: \nabla_theta Q(x,u,theta_n-1)
-            dQ = squeeze(derivQ_central(:,:,uidx,:)); % squeeze to remove dim of size = 1
+            dF = squeeze(derivF_central(:,:,uidx,:)); % squeeze to remove dim of size = 1
 
             % Extract all theta values.
             theta = z{3};
@@ -268,18 +286,41 @@ classdef MDPHumanSGD3D < handle
             % HACK?! need to think of a better way to do this
             if size(theta) == 1
                 % We are querying for SGD at *single* (x,y,theta) point
-                dQ_final = eval_u(obj.grid3d, dQ, cell2mat(z));
+                dF_final = eval_u(obj.grid3d, dF, cell2mat(z));
             else
                 % We are querying for SGD at *grid* of (x,y,theta) points
-                dQ_final = dQ;
+                dF_final = dF;
             end
             
             % Perform SGD update!
-            theta_n = theta + obj.alpha .* dQ_final;
+            theta_n = theta + obj.alpha .* dF_final;
             
             % Clip next theta to be between max and min 
             % acceptable weight values.
             theta_n = min(max(theta_n, obj.grid3d.min(3)), obj.grid3d.max(3));
+        end
+        
+        %% Computes P(u | x, theta) \propto e^{Q(x,u,theta)}
+        function pu = pugivenxtheta(obj, u, z)
+            % Find index of this control in set of controls.
+            mat_ctrls = reshape(cell2mat(obj.controls), [2,length(obj.controls)]);
+            diff = abs(mat_ctrls - u');
+            uidx = find(sum(diff,1) < 0.0001);
+            
+            % Get Q(<all x>, <all y>, u, <all theta>)
+            qfun = squeeze(obj.interp_Qfuns(:,:,uidx,:));
+            qvals = eval_u(obj.grid3d, qfun, cell2mat(z));
+            
+            % Return probability of control u given state x and model parameter theta.
+            numerator = exp(qvals);
+            denominator = 0;
+            for i=1:obj.num_ctrls
+                qfun = squeeze(obj.interp_Qfuns(:,:,i,:));
+                denominator = denominator + exp(qfun);
+            end
+            
+            % Returns P(u | <all x>, <all theta>)
+            pu = numerator ./ denominator;
         end
         
         %% Generates the discrete controls for the MDP human. 

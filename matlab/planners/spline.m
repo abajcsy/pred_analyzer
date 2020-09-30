@@ -27,7 +27,7 @@ function curr_spline = spline(start, goal, final_t, num_waypts)
     % Compute state trajectory at time steps using coefficients.
     xs = zeros([1,num_waypts]);
     ys = zeros([1,num_waypts]);
-    %ths = zeros([1,num_waypts]);
+    ths = zeros([1,num_waypts]);
     xsdot = zeros([1,num_waypts]);
     ysdot = zeros([1,num_waypts]);
     ps = zeros([1,num_waypts]);
@@ -52,7 +52,7 @@ function curr_spline = spline(start, goal, final_t, num_waypts)
         xsdot(idx)  = 3. * a1 * ps(idx)^2 + 2 * b1 * ps(idx) + c1;
         ysdot(idx)  = 3. * a2 * ps(idx)^2 + 2 * b2 * ps(idx) + c2;
         psdot(idx)  = 3. * a3 * tnorm^2 + 2 * b3 * tnorm + c3;
-        %ths(idx) = atan2(ysdot(idx), xsdot(idx));
+        ths(idx) = atan2(ysdot(idx), xsdot(idx));
 
         % Compute speed (wrt time variable p). 
         speed = sqrt(xsdot(idx)^2 + ysdot(idx)^2);
@@ -73,7 +73,7 @@ function curr_spline = spline(start, goal, final_t, num_waypts)
         t = t + dt;
     end
     
-    curr_spline = {xs, ys, u1_lin_vel, u2_ang_vel};
+    curr_spline = {xs, ys, u1_lin_vel, u2_ang_vel, ths};
 end
 
 %% Generates spline coefficients. 

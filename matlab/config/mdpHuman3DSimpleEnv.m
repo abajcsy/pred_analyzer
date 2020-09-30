@@ -13,8 +13,10 @@ params.thetas = {[-2, 2], [2, 2]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
-% tol = 1-0.85;
-% centerPgoal1 = (1-0.85)/2 + 0.85;
+
+% Rectangular prism centered at true b(g)
+tol = 1-0.85;
+centerPgoal1 = (1-0.85)/2 + 0.85;
 xyoffset = 0.1;
 % center = [0; 0; centerPgoal1];
 % widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
@@ -23,8 +25,9 @@ xyoffset = 0.1;
 % params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 % Cylinder centered at true goal
-params.initial_value_fun = shapeCylinder(params.g,3,...
-    [params.thetas{params.trueThetaIdx}, 0.5], 0.5);
+% xyoffset = 0.1;
+% params.initial_value_fun = shapeCylinder(params.g,3,...
+%     [params.thetas{params.trueThetaIdx}, 0.5], 0.5);
 
 %% Time vector
 t0 = 1;
@@ -32,8 +35,8 @@ num_timesteps = 40;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
-params.uThresh = 0.00; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "max"; % min or max
+params.uThresh = 0.16; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -60,12 +63,13 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0,0,0.1};%{0,0,0.1};%{-0.2105, -1.8947, 0.1}; % {0.8,-2,0.1};
+params.initial_state = {0,0,0.1};
 %{-0.2105, -1.8947, 0.1}, 
 %{0,0,0.1};
 %{0.8,-2,0.5}; 
 %{-2.2, 0, 0.1}; 
 %{0.8,-2,0.1}; 
+%{0,-3,0.1};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 
@@ -135,7 +139,6 @@ if params.obstaclesInReachability
     params.extraArgs.obstacles = obstacle_fun;
     params.initial_value_fun = max(params.initial_value_fun, obstacle_fun);
 end
-
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
