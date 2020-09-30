@@ -88,6 +88,7 @@ while iter < tauLength
             if isnan(idx{1})
                 val = nan;
                 val_l = nan;
+                fprintf('Nan encountered');
             else
                 val = value_fun_next(idx{1});
                 val_l = value_fun_next(idx{1}) * l;
@@ -111,11 +112,12 @@ while iter < tauLength
     else 
         error("Invalid uMode!");
     end
-%     optVal
-%     ctrl_ind
-    % Apply the optimal control.
-%     fprintf('Value of current state at t=-%f: %f ...\n', iter, ...
-%             optVal);
+    optVal
+    ctrl_ind
+    vals
+    %Apply the optimal control.
+    fprintf('Value of current state at t=-%f: %f ...\n', iter, ...
+            optVal);
     ctrl = dynSys.controls{ctrl_ind};
     ctrls{iter} = ctrl;
     z = dynSys.dynamics(z,ctrl);
