@@ -3,13 +3,13 @@ function params = exp1_legibility()
 %% Grid setup
 params.gmin = [-6, -6, 0];
 params.gmax = [6, 6, 1];
-params.gnums = [20, 20, 20];
+params.gnums = [30, 30, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.thetas = {[-5.5, 0], [-3, 4]};
+params.thetas = {[1.5,-5.5], [-3.5, -3]}; %{[-5.5, 0], [-3, 4]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
@@ -34,11 +34,11 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 20;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
+params.uMode = "max"; % min or max
 params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
@@ -53,7 +53,10 @@ g_phys = createGrid(params.gmin(1:2)', ...
 params.reward_info.g = g_phys; 
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
-obs_data = imread("data/map.png");
+repo = what('pred_analyzer');
+data_path = strcat(repo.path, '/matlab/data/');
+map_name = 'map.png'; 
+obs_data = imread(strcat(data_path, map_name));
 n_phys = numel(params.gmin) - numel(params.bdims);
 params.reward_info.obstacles = get_obs_map(obs_data, ...
                                         params.gmin(1:n_phys), ...
@@ -68,7 +71,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {1.5,1.5,0.5};
+params.initial_state = {0,0,0.5}; %{1.5,1.5,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 

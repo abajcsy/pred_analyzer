@@ -3,13 +3,13 @@ function params = exp2_confidence()
 %% Grid setup
 params.gmin = [-6, -6, 0];
 params.gmax = [6, 6, 1];
-params.gnums = [20, 20, 20];
+params.gnums = [30, 30, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.theta = [-5.5,0];
+params.theta = [1.5,-5.5]; % [-5.5,0];
 params.betas = {0.1, 1}; % Note that first two betas are included in state
 params.trueBetaIdx = 2;
 
@@ -40,7 +40,7 @@ params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "min"; % min or max
-params.uThresh = 0.1; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -60,13 +60,13 @@ params.reward_info.obstacles = get_obs_map(obs_data, ...
                                         params.gmin(1:n_phys), ...
                                         params.gmax(1:n_phys), ...
                                         params.gnums(1:n_phys));
-
+                                    
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.theta = {params.theta(1), params.theta(2)};
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {1.5,1.5,0.5};
+params.initial_state = {0,0,0.5}; %{2,-4,0.5}; %{1.5,1.5,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 

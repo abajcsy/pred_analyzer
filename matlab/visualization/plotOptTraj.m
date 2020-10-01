@@ -8,6 +8,38 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     figure
     hold on
     
+    % Plot obstacles.
+    if isfield(extraPltArgs, 'obstacles')
+        if ~isa(extraPltArgs.obstacles, 'Grid')
+            for oi = 1:length(extraPltArgs.obstacles)
+                obs_info = extraPltArgs.obstacles{oi};
+                obs_min = obs_info(1:2);
+
+                x_min = obs_min(1);
+                y_min = obs_min(2);
+                p_min = 0;
+                l = [obs_info(3), ...
+                    obs_info(4), ...
+                    1];
+                plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+            end
+        else
+            % Visualize black and white 
+            bandw_cmap = [1,1,1;0,0,0];
+            colormap(bandw_cmap)
+            ph = pcolor(extraPltArgs.obstacles.g{1}, ...
+                    extraPltArgs.obstacles.g{2}, ...
+                    extraPltArgs.obstacles.data);
+            set(ph, 'EdgeColor', 'none');
+
+%             colormap(flipud('gray'))
+%             contourf(extraPltArgs.obstacles.g{1}, ...
+%                     extraPltArgs.obstacles.g{2}, ...
+%                     plt_obs, [0.8,1]);
+
+        end
+    end
+    
     % Goal colors.
     g1Color = 'r';
     g2Color = [38., 138., 240.]/255.; %'b';
@@ -143,7 +175,8 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         t2.Color = g2Color;
     end
     
-    grid on;
+    %grid on;
+    
     if grid_min(1) > -3 && grid_max(1) < 3
         xticks([grid_min(1), -1, 0, 1, grid_max(1)]);
     else
@@ -180,27 +213,7 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
         saveas(gcf, strcat(repo.path, '/imgs/', filename));
         fprintf("Saved figures!");
     end
-    
-    % Plot obstacles.
-    if isfield(extraPltArgs, 'obstacles')
-        if ~isa(extraPltArgs.obstacles, 'Grid')
-            for oi = 1:length(extraPltArgs.obstacles)
-                obs_info = extraPltArgs.obstacles{oi};
-                obs_min = obs_info(1:2);
-
-                x_min = obs_min(1);
-                y_min = obs_min(2);
-                p_min = 0;
-                l = [obs_info(3), ...
-                    obs_info(4), ...
-                    1];
-                plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
-            end
-        else
-            figure
-            imshow(extraPltArgs.obstacles.data);
-        end
-    end
+   
     
     hold off
 end
