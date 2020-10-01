@@ -3,7 +3,7 @@ function params = carHuman4DDrivingFullEnv()
 %% Grid setup
 params.gmin = [-6.5, -6.5, 0, 0];
 params.gmax = [6.5, 6.5, 2*pi, 1];
-params.gnums = [10, 10, 12, 20];
+params.gnums = [10, 10, 10, 10];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = {4}; % dimension(s) which contain the belief
 
@@ -45,12 +45,12 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 100;
+num_timesteps = 10;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "max"; % min or max
-params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "min"; % min or max
+params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -171,7 +171,7 @@ end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
-params.extraArgs.stopInit = params.initial_state;
+%params.extraArgs.stopInit = params.initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)

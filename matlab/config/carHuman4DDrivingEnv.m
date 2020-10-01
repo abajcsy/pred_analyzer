@@ -5,7 +5,7 @@ params.gmin = [-4, -4, 0, 0];
 params.gmax = [4, 4, 2*pi, 1];
 params.gnums = [20, 20, 12, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
-params.bdims = 4; % dimension(s) which contain the belief
+params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[-3.6, 1, pi], [1, 3.6, pi/2]};
@@ -42,12 +42,12 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 10;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
-params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "max"; % min or max
+params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -97,8 +97,12 @@ params.beta = 1;
 gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
-params.vel = 1; % Car's driving speed (m/s)
+params.vel = 6; % Car's driving speed (m/s)
 params.dt = gdisc4D(1)/params.vel;
+
+% range of belief values
+b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));
+params.b_range = [b_space(2) b_space(numel(b_space)-1)];
 
 % MDP human.
 params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
@@ -111,7 +115,8 @@ params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
                                     params.eps, ...
                                     params.beta, ...
                                     params.vel, ...
-                                    params.dt);
+                                    params.dt, ...
+                                    params.b_range);
          
 %% Pack problem parameters
 params.schemeData.grid = params.g;
@@ -141,7 +146,7 @@ params.obstaclesInReachability = false;
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
-params.extraArgs.stopInit = params.initial_state;
+%params.extraArgs.stopInit = params.initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)

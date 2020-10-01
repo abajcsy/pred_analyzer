@@ -9,8 +9,9 @@ close all
 % === Setups where joint state includes belief. === %
 % params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-% params = carHuman4DDrivingEnv();
-params = carHuman4DDrivingFullEnv();
+params = carHuman4DDrivingEnv();
+% params = carHuman4DDrivingFullEnv();
+
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
 

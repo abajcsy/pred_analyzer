@@ -1,71 +1,132 @@
-function [traj, traj_tau, ctrl_seq, reached, time] = ...
-    computeOptTraj_old(initial_state, value_funs, grid, dyn_sys, controls, ...
-    uMode, likelyMasks, start_idx, zero_tol)
+function [traj, traj_tau, ctrls] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
+% [traj, traj_tau] = computeOptTraj(g, data, tau, dynSys, extraArgs)
+%   Computes the optimal trajectories given the optimal value function
+%   represented by (g, data), associated time stamps tau, dynamics given in
+%   dynSys.
+%
+% Inputs:
+%   z0      - initial condition
+%   g, data - grid and value function
+%   tau     - time stamp (must be the same length as size of last dimension of
+%                         data)
+%   dynSys  - dynamical system object for which the optimal path is to be
+%             computed
+%   uMode   - specifies whether the control u aims to minimize or
+%             maximize the value function
 
-    [~, num_timesteps] = size(value_funs);
-    n = numel(initial_state);
+grid = Grid(g.min, g.max, g.N); % for converting from real to linear index
+all_states = grid.get_grid();
+likelyMasks = dynSys.getLikelyMasks(all_states);
+
+if any(diff(tau)) < 0
+  error('Time stamps must be in ascending order!')
+end
+
+upper = tau(end);
+lower = 1;
+
+% Determine the earliest time that the current state is in the reachable set
+tEarliest = findEarliestBRSInd(grid, value_funs, z0, upper, lower);
+if tEarliest == 0
+    fprintf("BRS never included initial state! Cannot find optimal traj.\n");
+    return;
+end
+
+% Grid initial condition
+if extraArgs.interpolate
+    z0 = z0;
+else
+    z0 = grid.RealToCoords(z0);
+end
+
+% Time parameters
+tauLength = length(tau)-tEarliest+1;
+traj = nan(g.dim, tauLength);
+traj_tau = [];
+ctrls = cell(1, tauLength-1);
+if iscell(z0)
+    traj(:,1) = cell2mat(z0);
+else
+    traj(:,1) = z0;
+end
+
+iter = 1;
+z = z0;
+small = 1e-4;
+
+while iter < tauLength 
+    % Get value function at next timestep. 
+    value_fun_next = value_funs{tEarliest+iter};
     
-    % Find latest time BRS includes initial state.
-    initial_coord = grid.RealToCoords(initial_state);
-    traj(1:3,1) = cell2mat(initial_coord);
-    traj_tau(1) = 0.0;
-    initial_idx = grid.RealToIdx(initial_state);
-    initial_idx = initial_idx{1};
-    start_t = 0;
-    i = num_timesteps;
+    % Find the optimal control
+    vals = [];
+    vals_t = [];
     
-    while i >= start_idx
-        fprintf('Value of initial state at t=-%f: %f ...\n', i, ...
-                value_funs{i}(initial_idx));
-        if value_funs{i}(initial_idx) <= zero_tol
-            fprintf('Value of initial state at earliest appearance in BRS: %f\n', ...
-                value_funs{i}(initial_idx));
-            start_t = i;
-            break
-        end
-        i = i - 1;
-    end
-    if start_t == num_timesteps
-        reached = true;
-        time = 0;
-        ctrl_seq = [];
-    elseif start_t == 0
-        reached = false;
-        time = inf;
-        ctrl_seq = [];
-    else
-        reached = true;
-        ctrl_seq = cell(1,num_timesteps-start_t);
-        state = initial_coord;
-        j = 1;
-        time = 0;
-        
-        for t=start_t:num_timesteps-1
-%             state
-            vals = [];
-            value_fun_next = value_funs{t+1};
-            idx_curr = grid.RealToIdx(state);
-            for i=1:numel(controls)
-                u_i = controls{i};
-                idx = grid.RealToIdx(dyn_sys.dynamics(state,u_i));
-                likelyMask = likelyMasks(num2str(u_i));
-                val = value_fun_next(idx{1}) * likelyMask(idx_curr{1});
-                vals = [vals, val];
-            end
-            if strcmp(uMode, "min")
-                [~, ctrl_ind] = min(vals, [], 2);
+    idx_curr = grid.RealToIdx(z);
+    if extraArgs.interpolate
+        grid.SetData(value_fun_next);
+        for i=1:dynSys.num_ctrls
+            u_i = dynSys.controls{i};
+            likelyMask = likelyMasks(num2str(u_i));
+            if isnan(likelyMask(idx_curr{1}))
+                val = nan;
             else
-                [~, ctrl_ind] = max(vals, [], 2);
+                next_z = dynSys.dynamics(z, u_i);
+                val = grid.interpolate(next_z);
             end
-            ctrl = controls{ctrl_ind};
-            ctrl_seq{j} = ctrl;
-            state = grid.RealToCoords(dyn_sys.dynamics(state,ctrl));
-            time = time + 1;
+            vals = [vals, val];
+        end
+    else
+        for i=1:dynSys.num_ctrls
+            u_i = dynSys.controls{i};
+            likelyMask = likelyMasks(num2str(u_i));
             
-            traj(1:3, j+1) = cell2mat(state);
-            traj_tau(j+1) = time;
-
-            j = j + 1;
+            isLikley = likelyMask(idx_curr{1});
+            if isnan(likelyMask(idx_curr{1}))
+                val = nan;
+            else
+                idx = grid.RealToIdx(dynSys.dynamics(z, u_i));
+                val = value_fun_next(idx{1});
+            end
+            vals = [vals, val];
         end
     end
+
+    if strcmp(uMode, "min")
+        [optVal, ctrl_ind] = min(vals, [], 2);
+    elseif strcmp(uMode, "max")
+        [optVal, ctrl_ind] = max(vals, [], 2);
+    else 
+        error("Invalid uMode!");
+    end
+    
+    %Apply the optimal control.
+    fprintf('Value of current state at t=-%f: %f ...\n', iter, ...
+            optVal);
+    ctrl = dynSys.controls{ctrl_ind};
+    ctrls{iter} = ctrl;
+    z = dynSys.dynamics(z,ctrl);
+    if ~extraArgs.interpolate
+        z = grid.RealToCoords(z);
+    end
+  
+    % Record new point on nominal trajectory
+    iter = iter + 1;
+    if iscell(z)
+        traj(:,iter) = cell2mat(z);
+    else
+        traj(:,iter) = z;
+    end
+    
+    % CHECK if the state has reached the target set! If it has, break.
+    idx = grid.RealToIdx(z);
+    target_set = value_funs{end};
+    vz = target_set(idx{1});
+    if vz < small
+      break
+    end
+end
+
+traj_tau = tau(1:iter);
+
 end

@@ -134,8 +134,7 @@ while tidx > 0
             possible_value_funs(:,:,:,i) = data_next .* likelyMask;
         elseif num_dims == 4
             possible_value_funs(:,:,:,:,i) = data_next .* likelyMask;
-        end
-                
+        end                
     end
 
     % Minimize/Maximize over possible future value functions.
@@ -183,7 +182,6 @@ while tidx > 0
     if isfield(extraArgs, 'stopInit')
         initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
         initial_idx = initial_idx{1};
-%         value_fun(initial_idx)
         if value_fun(initial_idx) <= 0
             extraOuts.stoptau = tidx;
             fprintf("    Found earliest BRS containing z0!\n");
