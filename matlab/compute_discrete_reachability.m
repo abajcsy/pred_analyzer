@@ -9,11 +9,14 @@ close all
 % === Setups where joint state includes belief. === %
 % params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-params = carHuman4DDrivingEnv();
+% params = carHuman4DDrivingEnv();
 % params = carHuman4DDrivingFullEnv();
 
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
+
+% params = exp1_legibility();
+params = exp2_confidence();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -44,6 +47,7 @@ fprintf("Computing opt traj...\n");
                                   params.uMode, ...
                                   params.extraArgsCtrl);
 
+valid = check_traj(traj, params.reward_info.obstacles);
 % ====================================== %
 hold on
 pt = plot3(traj(1,:), traj(2,:), traj(3,:), '-o');
@@ -52,17 +56,19 @@ pt.Color = 'k';
 pt.MarkerFaceColor = 'b';
 pt.MarkerEdgeColor = 'b';
 hold on
-for oi = 1:length(params.reward_info.obstacles)
-    obs_info = params.reward_info.obstacles{oi};
-    obs_min = obs_info(1:2);
+if ~isa(params.reward_info.obstacles, 'Grid')
+    for oi = 1:length(params.reward_info.obstacles)
+        obs_info = params.reward_info.obstacles{oi};
+        obs_min = obs_info(1:2);
 
-    x_min = obs_min(1);
-    y_min = obs_min(2);
-    p_min = 0;
-    l = [obs_info(3), ...
-        obs_info(4), ...
-        1];
-    plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+        x_min = obs_min(1);
+        y_min = obs_min(2);
+        p_min = 0;
+        l = [obs_info(3), ...
+            obs_info(4), ...
+            1];
+        plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+    end
 end
 xlim([params.gmin(1),params.gmax(1)])
 ylim([params.gmin(2),params.gmax(2)])
@@ -135,4 +141,20 @@ function plotControlValues(ctrls,dynSys)
     plot(ang_vels)
     xlabel("time")
     ylabel("angular velocity")
+end
+
+function valid = check_traj(traj, obs)
+    [num_states, t_len] = size(traj);
+    c = cell(1, num_states);
+    valid = 1;
+    for i=1:t_len
+        s = traj(:,i);
+        c{1} = s(1);
+        c{2} = s(2);
+        c{3} = s(3);
+        if obs.GetDataAtReal(c) == 1
+            valid = 0;
+            break;
+        end
+    end
 end

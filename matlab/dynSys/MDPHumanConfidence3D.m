@@ -160,20 +160,21 @@ classdef MDPHumanConfidence3D < handle
             g_nums = obj.reward_info.g.N';
             
             % Create one mask which shows all states where obstacles are. 
-            penalty_in_obs_mask = 0 .* state_grid{1};
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                    obs_max = obs_info(1:2) + obs_info(3:4);
-                    obs_mask = (state_grid{1} >= obs_min(1)) & ...
-                        (state_grid{2} >= obs_min(2)) & ...
-                        (state_grid{1} <= obs_max(1)) & ...
-                        (state_grid{2} <= obs_max(2)); 
-                    % accumulate all obstacles in one mask. 
-                    penalty_in_obs_mask = penalty_in_obs_mask | obs_mask;
-                end
-            end
+%             penalty_in_obs_mask = 0 .* state_grid{1};
+%             if obj.has_obs
+%                 for oi = 1:length(obj.reward_info.obstacles)
+%                     obs_info = obj.reward_info.obstacles{oi};
+%                     obs_min = obs_info(1:2);
+%                     obs_max = obs_info(1:2) + obs_info(3:4);
+%                     obs_mask = (state_grid{1} >= obs_min(1)) & ...
+%                         (state_grid{2} >= obs_min(2)) & ...
+%                         (state_grid{1} <= obs_max(1)) & ...
+%                         (state_grid{2} <= obs_max(2)); 
+%                     % accumulate all obstacles in one mask. 
+%                     penalty_in_obs_mask = penalty_in_obs_mask | obs_mask;
+%                 end
+%             end
+            penalty_in_obs_mask = obj.reward_info.obstacles.data;
             
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -188,21 +189,24 @@ classdef MDPHumanConfidence3D < handle
                                   (penalty_outside_mask==1) .* -obj.nearInf; 
                 
                 if obj.has_obs
-                    penalty_obstacle_mask = 0 .* state_grid{1};
-                    for oi = 1:length(obj.reward_info.obstacles)
-                        obs_info = obj.reward_info.obstacles{oi};
-                        obs_min = obs_info(1:2);
-                        obs_max = obs_info(1:2) + obs_info(3:4);
-
-                        % -inf if moving into obstacle or inside of an obstacle rn.
-                        penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
-                                (next_state{2} >= obs_min(2)) & ...
-                                (next_state{1} <= obs_max(1)) & ...
-                                (next_state{2} <= obs_max(2)); 
-                        penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
-                    end
+%                     penalty_obstacle_mask = 0 .* state_grid{1};
+%                     for oi = 1:length(obj.reward_info.obstacles)
+%                         obs_info = obj.reward_info.obstacles{oi};
+%                         obs_min = obs_info(1:2);
+%                         obs_max = obs_info(1:2) + obs_info(3:4);
+% 
+%                         % -inf if moving into obstacle or inside of an obstacle rn.
+%                         penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+%                                 (next_state{2} >= obs_min(2)) & ...
+%                                 (next_state{1} <= obs_max(1)) & ...
+%                                 (next_state{2} <= obs_max(2)); 
+%                         penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+%                     end
+%                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+%                                         (penalty_obstacle_mask==1) .* -obj.nearInf;
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
-                                        (penalty_obstacle_mask==1) .* -obj.nearInf;
+                                    (penalty_obstacle_mask==1) .* -obj.nearInf;
                 else
                     % if no obstacles, then no penalty for obstacle anywhere. 
                     penalty_obstacle = zeros(size(state_grid{1}));
@@ -289,22 +293,25 @@ classdef MDPHumanConfidence3D < handle
                                   (penalty_outside_mask==1) .* -obj.nearInf; 
                               
                 if obj.has_obs
-                    penalty_obstacle_mask = 0 .* state_grid{1};
-                    for oi = 1:length(obj.reward_info.obstacles)
-                        obs_info = obj.reward_info.obstacles{oi};
-                        obs_min = obs_info(1:2);
-                        obs_max = obs_info(1:2) + obs_info(3:4);
-
-                        % -inf if moving into obstacle or inside of an obstacle rn.
-                        penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
-                                (next_state{2} >= obs_min(2)) & ...
-                                (next_state{1} <= obs_max(1)) & ...
-                                (next_state{2} <= obs_max(2)); 
-                        penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
-                    end
+%                     penalty_obstacle_mask = 0 .* state_grid{1};
+%                     for oi = 1:length(obj.reward_info.obstacles)
+%                         obs_info = obj.reward_info.obstacles{oi};
+%                         obs_min = obs_info(1:2);
+%                         obs_max = obs_info(1:2) + obs_info(3:4);
+% 
+%                         % -inf if moving into obstacle or inside of an obstacle rn.
+%                         penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+%                                 (next_state{2} >= obs_min(2)) & ...
+%                                 (next_state{1} <= obs_max(1)) & ...
+%                                 (next_state{2} <= obs_max(2)); 
+%                         penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+%                     end
+%                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+%                                         (penalty_obstacle_mask==1) .* -obj.nearInf;
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
-                                        (penalty_obstacle_mask==1) .* -obj.nearInf;
-                    else
+                                    (penalty_obstacle_mask==1) .* -obj.nearInf; 
+                else
                     % if no obstacles, then no penalty for obstacle anywhere. 
                     penalty_obstacle = zeros(size(state_grid{1}));
                 end
