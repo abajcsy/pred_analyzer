@@ -42,7 +42,7 @@ widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
 %           1.0];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 % params.initial_value_fun = shapeCylinder(params.g,4, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
-
+% params.initial_value_fun(params.initial_value_fun > 0) = 0;
 %% Time vector
 t0 = 1;
 num_timesteps = 100;
