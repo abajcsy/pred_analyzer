@@ -175,28 +175,28 @@ classdef MDPHumanSGD3D < handle
 %             bla = 1;
 
             % ======= PLOT THE Q-func @ x for all u and theta ====== %
-            debugging_qs = zeros([length(obj.controls), length(0:obj.gdisc(3):1)]);
-            for uidx = 1:length(obj.controls)
-                thidx = 1;
-                for th = 0:obj.gdisc(3):1
-                    z = {-1,2,th}; %{-2, -1, th};
-                    qth = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z));
-                    debugging_qs(uidx, thidx) = qth;
-                    thidx = thidx + 1;
-                end
-            end
-
-            [U,T] = meshgrid(0:obj.gdisc(3):1,1:1:length(obj.controls));
-            surf(U,T,debugging_qs);
-            yticklabels({'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'});
-            xticks([0,0.5,1]);
-            yticks([1,2,3,4,5,6,7,8,9]);
-            xlabel('theta');
-            ylabel('action');
-            zlabel('Q(x=-2, y=-1, u, theta)');
-            grid on;
-            set(gcf, 'color', 'w')
-            box on;
+%             debugging_qs = zeros([length(obj.controls), length(0:obj.gdisc(3):1)]);
+%             for uidx = 1:length(obj.controls)
+%                 thidx = 1;
+%                 for th = 0:obj.gdisc(3):1
+%                     z = {0,0,th}; %{-1,2,th}; %{-2, -1, th};
+%                     qth = eval_u(obj.grid3d, squeeze(obj.interp_Qfuns(:,:,uidx,:)), cell2mat(z));
+%                     debugging_qs(uidx, thidx) = qth;
+%                     thidx = thidx + 1;
+%                 end
+%             end
+% 
+%             [U,T] = meshgrid(0:obj.gdisc(3):1,1:1:length(obj.controls));
+%             surf(U,T,debugging_qs);
+%             yticklabels({'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'});
+%             xticks([0,0.5,1]);
+%             yticks([1,2,3,4,5,6,7,8,9]);
+%             xlabel('theta');
+%             ylabel('action');
+%             zlabel('Q(x=-2, y=-1, u, theta)');
+%             grid on;
+%             set(gcf, 'color', 'w')
+%             box on;
             % ===== DEBUGGING! ===== %
         end
         
@@ -241,23 +241,23 @@ classdef MDPHumanSGD3D < handle
             % the constructor to save time. 
             
             % Compute: E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
+            expected_Q = zeros(size(obj.grid3d.xs{1}));
             for ui=1:length(obj.controls)
-                pu_given_x_theta = obj.pugivenxtheta(u, z);
+                % Get P(u | <all x>, <all theta>)
+                pu_given_x_theta = obj.pugivenxtheta(u, obj.grid3d.xs);
                 expected_Q = expected_Q + squeeze(obj.interp_Qfuns(:,:,uidx,:)) .* pu_given_x_theta;
             end
             
             % Compute: (Q(x, u, theta_n-1) -  E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
-            grad_func = obj.interp_Qfuns(:,:,uidx,:) - expected_Q;
-            
-            % TODO THIS IS NOT RIGHT (IN TERMS OF DIMENSIONS!!!)
+            grad_func = squeeze(obj.interp_Qfuns(:,:,uidx,:)) - expected_Q;
             
             % Approximate the gradient:
             %   \nabla_theta (Q(x, u, theta_n-1) -  E_{u ~ P(u | x, theta_n-1)}[Q(x,u,theta_n-1)])
-            low = [obj.grid3d.min(1), obj.grid3d.min(2), 1, obj.grid3d.min(3)];
-            up = [obj.grid3d.max(1), obj.grid3d.max(2), length(obj.controls), obj.grid3d.max(3)];
-            N = [obj.grid3d.N(1), obj.grid3d.N(2), length(obj.controls), obj.grid3d.N(3)];
+            low = [obj.grid3d.min(1), obj.grid3d.min(2), obj.grid3d.min(3)];
+            up = [obj.grid3d.max(1), obj.grid3d.max(2), obj.grid3d.max(3)];
+            N = [obj.grid3d.N(1), obj.grid3d.N(2), obj.grid3d.N(3)];
             deriv_grid = createGrid(low,up,N);
-            deriv_dim = 4;          % taking spatial gradient of the theta dim
+            deriv_dim = 3;          % taking spatial gradient of the theta dim
             generateAll = 0;        % ignore all possible second order upwind approximations.
 
             % Choose fidelty of numerical approximation to gradient. 
@@ -275,10 +275,10 @@ classdef MDPHumanSGD3D < handle
             end
             
             % Compute the central derivative
-            derivF_central = 0.5 .* (derivF_L + derivF_R);
+            dF = 0.5 .* (derivF_L + derivF_R);
 
             % Numerically approximate: \nabla_theta Q(x,u,theta_n-1)
-            dF = squeeze(derivF_central(:,:,uidx,:)); % squeeze to remove dim of size = 1
+            %dF = squeeze(derivF_central(:,:,uidx,:)); % squeeze to remove dim of size = 1
 
             % Extract all theta values.
             theta = z{3};
@@ -309,10 +309,10 @@ classdef MDPHumanSGD3D < handle
             
             % Get Q(<all x>, <all y>, u, <all theta>)
             qfun = squeeze(obj.interp_Qfuns(:,:,uidx,:));
-            qvals = eval_u(obj.grid3d, qfun, cell2mat(z));
+            %qvals = eval_u(obj.grid3d, qfun, cell2mat(z));
             
             % Return probability of control u given state x and model parameter theta.
-            numerator = exp(qvals);
+            numerator = exp(qfun);
             denominator = 0;
             for i=1:obj.num_ctrls
                 qfun = squeeze(obj.interp_Qfuns(:,:,i,:));
