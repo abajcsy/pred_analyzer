@@ -45,7 +45,7 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 % params.initial_value_fun(params.initial_value_fun > 0) = 0;
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 20;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -103,7 +103,7 @@ gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 params.vel = 8;
 params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
 params.angular_range = [-4*pi,-2*pi,0,2*pi,4*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
-params.dt = 0.16;%gdisc4D(1)/params.vel;
+params.dt = gdisc4D(1)/params.vel; %0.16;%gdisc4D(1)/params.vel;
 
 % range of belief values
 b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));
@@ -171,7 +171,7 @@ end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
-%params.extraArgs.stopInit = params.initial_state;
+params.extraArgs.stopInit = params.initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)

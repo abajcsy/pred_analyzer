@@ -9,14 +9,14 @@ close all
 % === Setups where joint state includes belief. === %
 % params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-% params = carHuman4DDrivingEnv();
+params = carHuman4DDrivingEnv();
 % params = carHuman4DDrivingFullEnv();
 
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
 
 % params = exp1_legibility();
-params = exp2_confidence();
+% params = exp2_confidence();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -47,7 +47,8 @@ fprintf("Computing opt traj...\n");
                                   params.uMode, ...
                                   params.extraArgsCtrl);
 
-valid = check_traj(traj, params.reward_info.obstacles);
+%valid = check_traj(traj, params.reward_info.obstacles);
+
 % ====================================== %
 hold on
 pt = plot3(traj(1,:), traj(2,:), traj(3,:), '-o');
