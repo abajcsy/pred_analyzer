@@ -3,12 +3,12 @@ function params = carHuman4DDrivingEnv()
 %% Grid setup
 params.gmin = [-4, -4, 0, 0];
 params.gmax = [4, 4, 2*pi, 1];
-params.gnums = [20, 20, 10, 20];
+params.gnums = [20, 20, 15, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
-params.thetas = {[-3.6, 1, pi], [-1, -3.5, 3*pi/2]};
+params.thetas = {[-3.6, 1, pi], [-1, -3.6, 3*pi/2]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
@@ -47,7 +47,7 @@ params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "max"; % min or max
-params.uThresh = 0.16; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.15; % 0.16 threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -78,7 +78,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {3.5, 1, pi, 0.5}; 
+params.initial_state = {3.6, 1, pi, 0.5}; 
 % params.initial_state = {1.7, -3.5, pi/2, 0.5};
 % params.initial_state = {3, 1, pi, 0.5};
 % params.initial_state = {0, 0, 0, 0.5};
