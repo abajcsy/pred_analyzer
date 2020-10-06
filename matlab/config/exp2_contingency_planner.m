@@ -13,25 +13,25 @@ params.frs_preds = preds;
 %% Grid representation.
 params.gmin = [-6,-6]; % should take into accound theta too?
 params.gmax = [6,6];
-params.gnums = [10,10];
+params.gnums = [15,15];
 params.g2d = createGrid(params.gmin, params.gmax, params.gnums);
 
 % 3D grid including orientation
 pdDim = 3;
-ntheta = 10;
+ntheta = 15;
 params.g3d = createGrid([params.gmin,-pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 
 %% Trajectory Info
-params.num_waypts = length(params.frs_preds); % match the number of waypts. %50;
+params.num_waypts = 12; % match the number of waypts predicted.
 params.horizon = 8;
 params.dt = params.horizon/(params.num_waypts-1);
 params.goal = [3, -5, -pi/2, 0.01]; 
 
 % 13 meters / second ~= 30 mph
 % 8 meters / second ~= 18 mph (is the average speed at intersection) 
-dv = 1;
+dv = 0.25;
 params.max_linear_vel = 2.; %0.65; % turtlebot max linear velocity
-params.max_angular_vel = 1.; %1.5; % actual turtlebot angular vel is = pi
+params.max_angular_vel = 0.5; %1.5; % actual turtlebot angular vel is = pi
 params.footprint_rad = 0.354; % note: this isn't used rn.... 
 
 %% Car info.
@@ -40,17 +40,6 @@ params.car_width = 0.354*2; %1.8; % in m
 params.car_rad = 0.354;
 
 %% Signed dist functions.
-
-% Obstacles (based on interpolated occupancy grid) used in Q-function computation.
-% repo = what('pred_analyzer');
-% data_path = strcat(repo.path, '/matlab/data/');
-% map_name = 'emptier_map.png'; 
-% obs_data = imread(strcat(data_path, map_name));
-% params.obstacles = get_obs_map(obs_data, ...
-%                                 [params.gmin, 0], ...
-%                                 [params.gmax, 255], ...
-%                                 [params.gnums,10]); 
-
 pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/data/');
@@ -71,7 +60,7 @@ params.sd_goal = -1 .* shapeCylinder(params.g2d, 3, params.goal(1:2), params.goa
 % params.sd_goal = -1 .* shapeCylinder(params.g3d, [], params.goal(1:3), params.goal_radius); % 3D function (x,y,theta)
 
 %% Setup probability over model confidence
-params.belief = [0.1, 0.9]; % b(beta = 0.1) and b(beta = 1)
+params.belief = [1,0]; % b(beta = 0.1) and b(beta = 1)
 params.pthresh = 0.01;
 
 %% Create spline planner!

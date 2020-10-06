@@ -16,6 +16,8 @@ classdef ConfContingencyPlanner < handle
         disc_xy
         disc_xyth
         disc_xythvel
+        dyn_feas_xythvel
+        feasible_final_goals
         gmin
         gmax
         gnums
@@ -84,11 +86,48 @@ classdef ConfContingencyPlanner < handle
                              obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3));
             [X,Y,TH,V] = ndgrid(obj.g3d.min(1):obj.g3d.dx(1):obj.g3d.max(1), ...
                              obj.g3d.min(2):obj.g3d.dx(2):obj.g3d.max(2), ...
-                             obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
-                             -obj.max_linear_vel:dv:obj.max_linear_vel);             
+                             obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ... %linspace(-3*pi/4, 3*pi/4, obj.g3d.N(3)), ...
+                             0.01:dv:obj.max_linear_vel); 
+                             %obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
+                             %-obj.max_linear_vel:dv:obj.max_linear_vel);             
             obj.disc_xy = [X2D(:), Y2D(:)];
             obj.disc_xyth = [X3D(:), Y3D(:), TH3D(:)];
             obj.disc_xythvel = [X(:), Y(:), TH(:), V(:)];
+        end
+        
+        %% TEST HELPER
+        function dyn_feas_xythvel = ...
+                find_dyn_feas_shared_goal(obj, start, horiz, num_waypts)
+            dyn_feas_xythvel = [];
+            for i=1:length(obj.disc_xythvel)
+                candidate_goal = obj.disc_xythvel(i,:);
+                curr_spline = ...
+                    spline(start, candidate_goal, horiz, num_waypts);
+                feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
+                                                  obj.max_linear_vel, ...
+                                                  obj.max_angular_vel, ...
+                                                  horiz);
+                if feasible_horiz <= horiz
+                    dyn_feas_xythvel = [dyn_feas_xythvel; candidate_goal];
+                end
+            end
+        end
+        
+        function dyn_feas_xy = ...
+                find_dyn_feas_final_goal(obj, start, goal, horiz, num_waypts)
+            dyn_feas_xy = [];
+            for i=1:length(obj.disc_xy)
+                candidate_goal = [obj.disc_xy(i,:), goal(3), goal(4)];
+                curr_spline = ...
+                    spline(start, candidate_goal, horiz, num_waypts);
+                feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
+                                                  obj.max_linear_vel, ...
+                                                  obj.max_angular_vel, ...
+                                                  horiz);
+                if feasible_horiz <= horiz
+                    dyn_feas_xy = [dyn_feas_xy; candidate_goal(1:2)];
+                end
+            end
         end
         
         %% Plans a contingency plan from start to goal.
@@ -97,22 +136,56 @@ classdef ConfContingencyPlanner < handle
             
             % Compute number of waypoints in each part of the plan.
             [~,end_idx] = min(abs(obj.times - branch_t));
+            binned_branch_t = obj.times(end_idx);
             shared_num_waypts = end_idx;
-            branch_num_waypts = abs(obj.num_waypts - end_idx);
+            branch_num_waypts = abs(obj.num_waypts - end_idx)+1;
+            
+            binned_horiz = obj.times(end);
             
             % Keep track of best spline.
             opt_reward = -100000000000000.0;
             opt_plan = {};
             
-            for i=1:length(obj.disc_xythvel)
+            % set random seed
+            rng(5);
+            
+            % TEST! PRECOMPUTAtion.
+            feasible_shared_goals = ...
+                obj.find_dyn_feas_shared_goal(start, binned_branch_t, shared_num_waypts);
+            
+            %obj.feasible_final_goals = ...
+            %    obj.find_dyn_feas_final_goal(start, goal, binned_horiz, obj.num_waypts);
+            
+            num_shared_goals = length(feasible_shared_goals); 
+            %num_shared_goals = length(obj.disc_xythvel); 
+            %num_shared_goals = 500; % get a 500 samples 
+            for i=1:num_shared_goals 
                 fprintf('Evaluating %d / %d (%f percent)...\n', ...
-                    i, length(obj.disc_xythvel), 100*(i /length(obj.disc_xythvel)));
+                    i, num_shared_goals, 100*(i /num_shared_goals));
                 
-                shared_goal = obj.disc_xythvel(i, :);
+                % Option 1: grid search
+                %shared_goal = obj.disc_xythvel(i, :);
+                
+                % Option 1.5: precomp.
+                shared_goal = feasible_shared_goals(i, :);
+                
+                %if i == 55
+                %    bla = 1;
+                %end
+                
+                % Option 2: random sample
+                %rand_idx = randi(length(obj.disc_xythvel));
+                %shared_goal = obj.disc_xythvel(rand_idx, :);
+                
+                % resample if candidate goal is inside obstacles.
+                while eval_u(obj.g2d, obj.sd_obs, shared_goal(1:2)) < 0
+                    rand_idx = randi(length(obj.disc_xythvel));
+                    shared_goal = obj.disc_xythvel(rand_idx, :);
+                end
                  
                 % Compute shared spline. 
                 shared_spline = spline(start, shared_goal, ...
-                                        branch_t, shared_num_waypts);
+                                        binned_branch_t, shared_num_waypts);
 
                 % Extract final state of shared spline.
                 start_branch = [shared_spline{1}(end), ...
@@ -121,52 +194,59 @@ classdef ConfContingencyPlanner < handle
                                 shared_spline{3}(end)]; % (x,y,th,lin_v)        
 
                 % Compute branching splines for g1 and g2   
-%                 spline_opt = spline(start_branch, goal, ...
-%                                     obj.horizon-(branch_t+obj.dt), branch_num_waypts);
-%                 spline_frs = spline(start_branch, goal, ...
-%                                     obj.horizon-(branch_t+obj.dt), branch_num_waypts);
-
-                spline_opt = obj.plan(start_branch, goal, branch_t, ...
-                                        obj.horizon-obj.dt, branch_num_waypts, 'opt');
-                spline_frs = obj.plan(start_branch, goal, branch_t, ...
-                                        obj.horizon-obj.dt, branch_num_waypts, 'frs');
+                spline_opt = obj.plan(start_branch, goal, binned_branch_t, ...
+                                        binned_horiz, branch_num_waypts, 'opt');
+                spline_frs = obj.plan(start_branch, goal, binned_branch_t, ...
+                                        binned_horiz, branch_num_waypts, 'frs');
                                     
                 if isempty(spline_opt) || isempty(spline_frs)
                     continue;
                 end
                 
                 % Sanity check (and correct) all points on spline to be within env bounds. 
-                total_spline1 = {cat(2,shared_spline{1},spline_opt{1}), ...
-                                 cat(2,shared_spline{2},spline_opt{2}), ...
-                                 cat(2,shared_spline{3},spline_opt{3}), ...
-                                 cat(2,shared_spline{4},spline_opt{4}), ...
-                                 cat(2,shared_spline{5},spline_opt{5})};
-                total_spline2 = {cat(2,shared_spline{1},spline_frs{1}), ...
-                                 cat(2,shared_spline{2},spline_frs{2}), ...
-                                 cat(2,shared_spline{3},spline_frs{3}), ...
-                                 cat(2,shared_spline{4},spline_frs{4}), ...
-                                 cat(2,shared_spline{5},spline_frs{5})};    
+                total_spline1 = {cat(2,shared_spline{1},spline_opt{1}(2:end)), ...
+                                 cat(2,shared_spline{2},spline_opt{2}(2:end)), ...
+                                 cat(2,shared_spline{3},spline_opt{3}(2:end)), ...
+                                 cat(2,shared_spline{4},spline_opt{4}(2:end)), ...
+                                 cat(2,shared_spline{5},spline_opt{5}(2:end))};
+                total_spline2 = {cat(2,shared_spline{1},spline_frs{1}(2:end)), ...
+                                 cat(2,shared_spline{2},spline_frs{2}(2:end)), ...
+                                 cat(2,shared_spline{3},spline_frs{3}(2:end)), ...
+                                 cat(2,shared_spline{4},spline_frs{4}(2:end)), ...
+                                 cat(2,shared_spline{5},spline_frs{5}(2:end))};   
                              
-                %curr_spline = obj.sanity_check_spline(total_spline1, obj.num_waypts);
+                % Sanity check (and correct) all points on spline to be within env bounds.              
+                total_spline1 = obj.sanity_check_spline(total_spline1, obj.num_waypts);
+                total_spline2 = obj.sanity_check_spline(total_spline2, obj.num_waypts);
                 
                 % Compute the dynamically feasible horizon for the current plan.
                 feasible_horizon1 = ...
                     obj.compute_dyn_feasible_horizon(total_spline1, ...
                                                   obj.max_linear_vel, ...
                                                   obj.max_angular_vel, ...
-                                                  obj.horizon);
+                                                  binned_horiz);
                 feasible_horizon2 = ...
                     obj.compute_dyn_feasible_horizon(total_spline2, ...
                                                   obj.max_linear_vel, ...
                                                   obj.max_angular_vel, ...
-                                                  obj.horizon); 
-                                              
+                                                  binned_horiz); 
+%                 figure(2)   
+%                 clf                              
 %                 hold on
-%                 plot(shared_spline{1}, shared_spline{2}, 'm');
-%                 plot(spline_opt{1}, spline_opt{2}, 'r');
-%                 plot(spline_frs{1}, spline_frs{2}, 'b');
+%                 qs = quiver(shared_spline{1}, shared_spline{2}, cos(shared_spline{5}), sin(shared_spline{5}), 'm');
+%                 qs.AutoScale = 'off';
+%                 qs.AutoScaleFactor = 0.5;
+%                 qs = quiver(spline_opt{1}, spline_opt{2}, cos(spline_opt{5}), sin(spline_opt{5}), 'r');
+%                 qs.AutoScale = 'off';
+%                 qs.AutoScaleFactor = 0.5;
+%                 qs = quiver(spline_frs{1}, spline_frs{2}, cos(spline_frs{5}), sin(spline_frs{5}), 'b');
+%                 qs.AutoScale = 'off';
+%                 qs.AutoScaleFactor = 0.5;
+%                 %plot(spline_opt{1}, spline_opt{2}, 'r');
+%                 %plot(spline_frs{1}, spline_frs{2}, 'b');
 %                 xlim([-6.5,6.5]);
 %                 ylim([-6.5,6.5]);
+%                 hold off
 %                 grid on
 
                 % If total plan for each contingency plan is dynamically
@@ -175,9 +255,9 @@ classdef ConfContingencyPlanner < handle
                         feasible_horizon2 <= obj.horizon)
                     
                     % Get reward of each trajectory segment
-                    reward_shared = obj.eval_reward(shared_spline, 'all', 0, branch_t);
-                    reward_opt = obj.eval_reward(spline_opt, 'opt', branch_t+obj.dt, obj.horizon);
-                    reward_frs = obj.eval_reward(spline_frs, 'frs', branch_t+obj.dt, obj.horizon);
+                    reward_shared = obj.eval_reward(shared_spline, 'all', 0, binned_branch_t);
+                    reward_opt = obj.eval_reward(spline_opt, 'opt', binned_branch_t, binned_horiz);
+                    reward_frs = obj.eval_reward(spline_frs, 'frs', binned_branch_t, binned_horiz);
                     
                     % Compute total reward where we weight the reward
                     % contribution of contingency plans based on the
@@ -185,19 +265,23 @@ classdef ConfContingencyPlanner < handle
                     %
                     %   R(traj) = R(shared) + \sum^M_i=1 b(g_i) * R(contingency_i)
                     %
+                    % obj.belief(1) is for low-confidence model (i.e. FRS)
+                    % obj.belief(2) is for high-confidence model (i.e. opt)
                     reward = reward_shared + ...
-                             obj.belief(1) * reward_opt + ...
-                             obj.belief(2) * reward_frs;
-                    
-%                     hold on
-%                     plot(shared_spline{1}, shared_spline{2}, 'r');
-%                     plot(spline_g1{1}, spline_g1{2}, 'y');
-%                     plot(spline_g2{1}, spline_g2{2}, 'b');
-%                     xlim([-6.5,6.5]);
-%                     ylim([-6.5,6.5]);
-%                     grid on
+                             obj.belief(1) * reward_frs + ...
+                             obj.belief(2) * reward_opt;
                         
                     if (reward > opt_reward)
+                        
+                        figure(2)
+                        hold on
+                        plot(shared_spline{1}, shared_spline{2}, 'm');
+                        plot(spline_opt{1}, spline_opt{2}, 'r');
+                        plot(spline_frs{1}, spline_frs{2}, 'b');
+                        xlim([-6.5,6.5]);
+                        ylim([-6.5,6.5]);
+                        grid on
+                        
                         opt_reward = reward;
                         opt_plan = {shared_spline, spline_opt, spline_frs};                        
                     end
@@ -231,8 +315,16 @@ classdef ConfContingencyPlanner < handle
             all_rewards = [];
             plt_handles = {};
             
-            for ti=1:length(obj.disc_xy) % length(obj.disc_xyth)
-                candidate_goal = obj.disc_xy(ti, :); %obj.disc_xyth(ti, :);
+            %num_candidate_goals = length(obj.feasible_final_goals); 
+            num_candidate_goals = length(obj.disc_xy); 
+            %num_candidate_goals = 100;
+            
+            for ti=1:num_candidate_goals
+                candidate_goal = obj.disc_xy(ti, :); 
+                %candidate_goal = obj.feasible_final_goals(ti, :);
+                
+                %rand_idx = randi(num_candidate_goals);
+                %candidate_goal = obj.disc_xy(rand_idx, :); 
                 
                 % ignore candidate goals inside obstacles.
                 if eval_u(obj.g2d, obj.sd_obs, candidate_goal(1:2)) < 0
@@ -258,7 +350,7 @@ classdef ConfContingencyPlanner < handle
                       hor-start_t);
                   
                 % If current spline is dyamically feasible, check if it is low cost.
-                if (feasible_horizon <= hor)
+                if (feasible_horizon <= hor-start_t)
                     
 %                     if strcmp(coll_check, 'g2')
 %                         hold on
@@ -330,7 +422,7 @@ classdef ConfContingencyPlanner < handle
                                               final_t)
               % Compute max linear and angular speed.
               plan_max_lin_vel = max(spline{3});
-              plan_max_angular_vel = max(spline{4});
+              plan_max_angular_vel = max(abs(spline{4}));
               
               % Compute required horizon to acheive max speed of planned spline.
               feasible_horizon_speed = ...

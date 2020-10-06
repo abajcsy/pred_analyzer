@@ -48,6 +48,7 @@ spline_opt = opt_plan{2};
 spline_frs = opt_plan{3};
 
 %% Plot!
+figure(1)
 q = quiver(shared_spline{1}, shared_spline{2}, ...
     cos(shared_spline{5}), sin(shared_spline{5}), 'k');
 q.Marker = 'o';

@@ -309,7 +309,7 @@ classdef ContingencyPlanner < handle
                                               final_t)
               % Compute max linear and angular speed.
               plan_max_lin_vel = max(spline{3});
-              plan_max_angular_vel = max(spline{4});
+              plan_max_angular_vel = max(abs(spline{4}));
               
               % Compute required horizon to acheive max speed of planned spline.
               feasible_horizon_speed = ...

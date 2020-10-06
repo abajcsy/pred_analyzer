@@ -1,17 +1,18 @@
 function params = exp2_planner_baselines()
 
 % Load "predicted" trajectories for the human for each beta value. 
-load('opt_preds.mat') % TODO: this technically shouldn't be perfectly optimal ... 
-params.opt_preds = preds;
-params.pred_times_real = real_times;
-params.pred_times_disc = discrete_times;
-params.pred_g = pred_g;
-
-load('frs_preds.mat')
-params.frs_preds = preds;
-
-load('conf_preds.mat')
-params.conf_preds = preds;
+% load('opt_preds.mat') % TODO: this technically shouldn't be perfectly optimal ... 
+% params.opt_preds = preds;
+% params.pred_times_real = real_times;
+% params.pred_times_disc = discrete_times;
+% params.pred_g = pred_g;
+% 
+% load('frs_preds.mat')
+% params.frs_preds = preds;
+% 
+% %load('conf_preds_5050.mat')
+% load('conf_preds_1090.mat')
+% params.conf_preds = preds;
 
 %% Grid representation.
 params.gmin = [-6,-6]; % should take into accound theta too?
@@ -25,7 +26,7 @@ ntheta = 10;
 params.g3d = createGrid([params.gmin,-pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 
 %% Trajectory Info
-params.num_waypts = length(params.frs_preds); % match the number of waypts. %50;
+params.num_waypts = 12; % Note: should match the number of steps predicted. 
 params.horizon = 8;
 params.dt = params.horizon/(params.num_waypts-1);
 params.goal = [3, -5, -pi/2, 0.01]; 
@@ -43,17 +44,6 @@ params.car_width = 0.354*2; %1.8; % in m
 params.car_rad = 0.354;
 
 %% Signed dist functions.
-
-% Obstacles (based on interpolated occupancy grid) used in Q-function computation.
-% repo = what('pred_analyzer');
-% data_path = strcat(repo.path, '/matlab/data/');
-% map_name = 'emptier_map.png'; 
-% obs_data = imread(strcat(data_path, map_name));
-% params.obstacles = get_obs_map(obs_data, ...
-%                                 [params.gmin, 0], ...
-%                                 [params.gmax, 255], ...
-%                                 [params.gnums,10]); 
-
 pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/data/');
@@ -74,10 +64,11 @@ params.sd_goal = -1 .* shapeCylinder(params.g2d, 3, params.goal(1:2), params.goa
 % params.sd_goal = -1 .* shapeCylinder(params.g3d, [], params.goal(1:3), params.goal_radius); % 3D function (x,y,theta)
 
 %% Setup probability over model confidence
-params.belief = [0.1, 0.9]; % b(beta = 0.1) and b(beta = 1)
-params.pthresh = 0.05;
+params.belief = [0.5, 0.5]; % b(beta = 0.1) and b(beta = 1)
+params.pthresh = 0.1;
 
 %% Create spline planner!
+fprintf('Setting up SINGLE SPLINE ROBOT PLANNER...\n');
 params.planner = ConfSplinePlanner(params.num_waypts, ...
                 params.horizon, ...
                 params.goal, ...
@@ -86,13 +77,10 @@ params.planner = ConfSplinePlanner(params.num_waypts, ...
                 params.footprint_rad, ...
                 params.sd_obs, ...
                 params.sd_goal, ...
-                params.opt_preds, ...
-                params.frs_preds, ...
-                params.conf_preds, ...
-                params.pred_times_real, ...
                 params.g2d, ...
                 params.g3d, ...
                 params.gmin, params.gmax, params.gnums, ...
-                params.pthresh, ...
-                params.pred_g);
+                params.pthresh);
+fprintf('Done.\n');
+            
 end

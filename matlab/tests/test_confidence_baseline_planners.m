@@ -30,9 +30,10 @@ scatter(h_x0(1), h_x0(2), 'r', 'filled');
 xlim([params.gmin(1), params.gmax(1)])
 ylim([params.gmin(2), params.gmax(2)])
 
-%% debugging
-figure(2)
-params.planner.plot_human_preds('conf')
+%% -------------- debugging ---------------- %%
+%figure(2)
+%params.planner.plot_human_preds('conf')
+% --------------- debugging ---------------- %
             
 %% Plan!
 % note: need a non-zero starting velocity to avoid singularities in spline

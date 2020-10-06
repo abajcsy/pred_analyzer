@@ -42,7 +42,7 @@ real_times = discrete_times*dt;
 %% Initial state and goal of human (in m)!
 x0 = [2, 0];                    % initial position of human (in m)
 goal = [-3.5, 0];
-beta_prior = [0.5,0.5];
+beta_prior = [0.1,0.9];
 
 %% Create CONF-AWARE predictor.
 fprintf('Predicting with CONFIDENCE-AWARE PREDICTOR...\n');
@@ -53,26 +53,26 @@ preds = conf_predictor.predict(x0, T, beta_prior);
 figure(1)
 conf_predictor.plot_preds(preds);
 
-save('conf_preds.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
+save('conf_preds_1090.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
 
-%% Create OPT predictor.
-fprintf('Predicting with OPT PREDICTOR...\n');
-opt_predictor = OptPredictor(pred_g, goal);
-% Predict!
-preds = opt_predictor.predict(x0, T);
-% Plot preds!
-%figure(2)
-%opt_predictor.plot_preds(preds);
-
-save('opt_preds.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
-
-%% Create FRS predictor.
-fprintf('Predicting with FRS PREDICTOR...\n');
-frs_predictor = FRSPredictor(pred_g);
-% Predict!
-preds = frs_predictor.predict(x0, T);
-% Plot preds!
-%figure(3)
-%frs_predictor.plot_preds(preds);
-
-save('frs_preds.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
+% %% Create OPT predictor.
+% fprintf('Predicting with OPT PREDICTOR...\n');
+% opt_predictor = OptPredictor(pred_g, goal);
+% % Predict!
+% preds = opt_predictor.predict(x0, T);
+% % Plot preds!
+% %figure(2)
+% %opt_predictor.plot_preds(preds);
+% 
+% save('opt_preds.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
+% 
+% %% Create FRS predictor.
+% fprintf('Predicting with FRS PREDICTOR...\n');
+% frs_predictor = FRSPredictor(pred_g);
+% % Predict!
+% preds = frs_predictor.predict(x0, T);
+% % Plot preds!
+% %figure(3)
+% %frs_predictor.plot_preds(preds);
+% 
+% save('frs_preds.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');

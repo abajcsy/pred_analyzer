@@ -18,9 +18,9 @@ classdef ConfSplinePlanner < handle
         gmin
         gmax
         gnums
-        %opt_preds
-        %frs_preds
-        %conf_preds
+        opt_preds
+        frs_preds
+        conf_preds
         pred_times
         pthresh
         pred_g
@@ -37,10 +37,15 @@ classdef ConfSplinePlanner < handle
                                         footprint_rad, ...
                                         sd_obs, ...
                                         sd_goal, ...
+                                        opt_preds, ...
+                                        frs_preds, ...
+                                        conf_preds, ...
+                                        pred_times, ...
                                         g2d, ...
                                         g3d, ...
                                         gmin, gmax, gnums, ...
-                                        pthresh)
+                                        pthresh, ...
+                                        pred_g)
             obj.num_waypts = num_waypts;
             obj.horizon = horizon;
             obj.goal = goal;
@@ -58,15 +63,15 @@ classdef ConfSplinePlanner < handle
             
             % Grab all of the predictions and corresponding times.
             % Assumes that 
-%             obj.opt_preds = opt_preds;
-%             obj.frs_preds = frs_preds;
-%             obj.conf_preds = conf_preds;
-%             obj.pred_times = pred_times;
-%             obj.pred_g = pred_g;
+            obj.opt_preds = opt_preds;
+            obj.frs_preds = frs_preds;
+            obj.conf_preds = conf_preds;
+            obj.pred_times = pred_times;
+            obj.pred_g = pred_g;
             
             % Times along spline. 
-%             obj.times = pred_times; 
-%             obj.dt = obj.times(2) - obj.times(1); 
+            obj.times = pred_times; %linspace(0,obj.horizon,obj.num_waypts);
+            obj.dt = obj.times(2) - obj.times(1); 
             
             gdisc = (gmax - gmin) ./ (gnums - 1);
             [X2D,Y2D] = meshgrid(gmin(1):gdisc(1):gmax(1), ...
@@ -79,17 +84,7 @@ classdef ConfSplinePlanner < handle
         end
         
         %% Plans a path from start to goal. 
-        function opt_spline = plan(obj, start, goal, ...
-                human_preds, pred_times, pred_g, coll_check)
-            
-            % Times along spline. 
-            obj.times = pred_times; 
-            obj.dt = obj.times(2) - obj.times(1); 
-            obj.pred_times = pred_times;
-            
-            % Prediction grid. 
-            obj.pred_g = pred_g;
-            
+        function opt_spline = plan(obj, start, goal, coll_check)
             opt_reward = -100000000000000.0;
             opt_spline = {};
             curr_spline = {};
@@ -126,11 +121,27 @@ classdef ConfSplinePlanner < handle
                   
                 % If current spline is dyamically feasible, check if it is low cost.
                 if (feasible_horizon <= obj.horizon) 
-                    reward = obj.eval_reward(curr_spline, human_preds, coll_check);
+                    reward = obj.eval_reward(curr_spline, coll_check);
 
                     if (reward > opt_reward)
                         opt_reward = reward;
                         opt_spline = curr_spline;
+                        
+                                            
+%                         % blaaa
+%                         hold on
+%                         contour(obj.g2d.xs{1}, obj.g2d.xs{2}, obj.sd_obs, [0,0]);
+%                         colors = [linspace(0,1,length(curr_spline{1}))', ...
+%                                     zeros([length(curr_spline{1}), 1]), ...
+%                                     zeros([length(curr_spline{1}), 1])];
+%                         p = plot(curr_spline{1}, curr_spline{2});
+%                         xlim([obj.gmin(1),obj.gmax(1)]);
+%                         ylim([obj.gmin(2),obj.gmax(2)]);
+%                         all_rewards(end+1) = reward;
+%                         plt_handles{end+1} = p;
+%                         grid on
+%                         % blaaa
+                    
                     end
                 end
             end
@@ -173,7 +184,7 @@ classdef ConfSplinePlanner < handle
                                               final_t)
               % Compute max linear and angular speed.
               plan_max_lin_vel = max(spline{3});
-              plan_max_angular_vel = max(abs(spline{4}));
+              plan_max_angular_vel = max(spline{4});
               
               % Compute required horizon to acheive max speed of planned spline.
               feasible_horizon_speed = ...
@@ -188,7 +199,7 @@ classdef ConfSplinePlanner < handle
         end
         
         %% Evaluates the total reward along the trajectory. 
-        function reward = eval_reward(obj, curr_spline, human_preds, coll_check)            
+        function reward = eval_reward(obj, curr_spline, coll_check)            
             xs = curr_spline{1};
             ys = curr_spline{2};
             ths = curr_spline{5};
@@ -208,19 +219,26 @@ classdef ConfSplinePlanner < handle
             human_r = zeros(size(obs_r));
             for i=1:length(traj)
                 r = 0.0;
-                
-                if strcmp(coll_check, 'conf')
-                    opt_eps = obj.compute_likely_states(human_preds{i}, obj.pthresh);
-                else
-                    opt_eps = 0.0;
-                end
-                
                 % compute the human reward.
-                val = eval_u(obj.pred_g, human_preds{i}, traj(i,:));
-                if val > opt_eps
-                    r = -100.0;
+                if strcmp(coll_check, 'all') || strcmp(coll_check, 'frs')
+                    val = eval_u(obj.pred_g, obj.frs_preds{i}, traj(i,:));
+                    if val > obj.pthresh
+                        r = -100.0;
+                    end
+                elseif strcmp(coll_check, 'opt')
+                    val = eval_u(obj.pred_g, obj.opt_preds{i}, traj(i,:));
+                    if val > obj.pthresh
+                        r = -100.0;
+                    end
+                elseif strcmp(coll_check, 'conf')
+                    opt_eps = obj.compute_likely_states(obj.conf_preds{i}, obj.pthresh);
+                    val = eval_u(obj.pred_g, obj.conf_preds{i}, traj(i,:));
+                    if val > opt_eps
+                        r = -100.0;
+                    end
+                else
+                    error('Invalid collision check option! %s', coll_check);
                 end
-                
                 human_r(i) = r;
             end
             
@@ -250,10 +268,18 @@ classdef ConfSplinePlanner < handle
         end
 
         %% Plots human predictions.
-        function plot_human_preds(obj, human_preds, pred_type)
-            for t=1:length(human_preds)
-                opt_eps = obj.compute_likely_states(human_preds{t}, obj.pthresh);
-                thresholded_preds = (human_preds{t} >= opt_eps) .* 1.0 + (human_preds{t} < opt_eps) .* 0.0;
+        function plot_human_preds(obj, pred_type)
+            if strcmp(pred_type, 'all') || strcmp(pred_type, 'frs')
+                preds = obj.frs_preds;
+            elseif strcmp(pred_type, 'opt')
+                preds = obj.opt_preds;
+            else % conf-aware preds
+                preds = obj.conf_preds;
+            end
+            
+            for t=1:length(preds)
+                opt_eps = obj.compute_likely_states(preds{t}, obj.pthresh);
+                thresholded_preds = (preds{t} >= opt_eps) .* 1.0 + (preds{t} < opt_eps) .* 0.0;
                 pcolor(obj.pred_g.xs{1}, obj.pred_g.xs{2}, thresholded_preds);
                 title(strcat('t=',num2str(obj.pred_times(t))));
                 pause(0.1);
