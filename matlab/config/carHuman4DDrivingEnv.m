@@ -1,28 +1,32 @@
 function params = carHuman4DDrivingEnv()
 
 %% Grid setup
-params.gmin = [-4, -4, 0, 0];
-params.gmax = [4, 4, 2*pi, 1];
-params.gnums = [20, 20, 15, 20];
+params.gmin = [-6.5, -6.5, 0, 0]; % [-4, -4, 0, 0];
+params.gmax = [6.5, 6.5, 2*pi, 1]; % [4, 4, 2*pi, 1];
+params.gnums = [20, 20, 20, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
-params.thetas = {[-3.6, 1, pi], [-1, -3.6, 3*pi/2]};
-params.trueThetaIdx = 1;
+%goal1 = [-5.6, 2.25, pi, 0.01]; % g1 
+%goal2 = [-2.25, -5.6, -pi/2, 0.01];  % g2
+params.thetas = {[-5.6, 2.25, pi], [-2.25, -5.6, 3*pi/2]};
+%params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
+%params.thetas = {[-3.6, 1, pi], [-1, -3.6, 3*pi/2]};
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
-tol = 0.2;
+tol = 0.1;
 if params.trueThetaIdx == 1
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 1, then target is 
     %       b(theta = 1) = 0.9
-    centerPgoal1 = 0.9;
+    centerPgoal1 = 0.95;
 elseif params.trueThetaIdx == 2
     % Since third state is b(theta = 1), then when the true
     % human is optimizing for theta = 2, then target is 
     %       b(theta = 1) = 0.1 --> b(theta = 2) = 0.9
-    centerPgoal1 = 0.1;
+    centerPgoal1 = 0.05;
 else 
     error('Invalid true theta index: %f!\n', params.trueThetaIdx);
 end
@@ -47,7 +51,7 @@ params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "max"; % min or max
-params.uThresh = 0.15; % 0.16 threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.2; % 0.16 threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -63,10 +67,14 @@ params.reward_info.g = g_phys;
 % Obstacles used in Q-function computation.
 % Axis-aligned rectangular obstacle convention is:
 %       [lower_x, lower_y, width, height]
-params.reward_info.obstacles = {[-4, -4, 2, 2]...
-                                [2, -4, 2, 2], ...
-                                [-4, 2, 2, 2], ...
-                                [2, 2, 2, 2]};
+% params.reward_info.obstacles = {[-4, -4, 2, 2]...
+%                                 [2, -4, 2, 2], ...
+%                                 [-4, 2, 2, 2], ...
+%                                 [2, 2, 2, 2]};
+params.reward_info.obstacles = {[0-6.5, 0-6.5, 3, 3]...
+                                [0-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 10-6.5, 3, 3], ...
+                                [10-6.5, 0-6.5, 3, 3]};                            
                      
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
@@ -78,13 +86,14 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {3.6, 1, pi, 0.5}; 
+params.initial_state = {5.6, 2.25, pi, 0.5};
+%params.initial_state = {3.6, 1, pi, 0.5}; 
 % params.initial_state = {1.7, -3.5, pi/2, 0.5};
 % params.initial_state = {3, 1, pi, 0.5};
 % params.initial_state = {0, 0, 0, 0.5};
 
 % Params for Value Iteration. 
-params.gamma = 0.99; 
+params.gamma = 0.98; 
 params.eps = 0.01;
 
 % Variance on likelihood model: 
@@ -98,7 +107,7 @@ gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
 params.vel = 6; % Car's driving speed (m/s)
-params.dt = gdisc4D(1)/params.vel;
+params.dt = 0.1633; %gdisc4D(1)/params.vel;
 
 % range of belief values
 b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));

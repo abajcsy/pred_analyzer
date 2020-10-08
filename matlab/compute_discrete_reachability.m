@@ -9,8 +9,8 @@ close all
 % === Setups where joint state includes belief. === %
 % params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-% params = carHuman4DDrivingEnv();
-params = carHuman4DDrivingFullEnv();
+params = carHuman4DDrivingEnv();
+% params = carHuman4DDrivingFullEnv();
 
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
@@ -26,8 +26,8 @@ params = carHuman4DDrivingFullEnv();
 % params.dyn_sys.plot_opt_policy(2);
 
 %% Plot optimal control policy starting from initial condition.
-% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
-% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
 
 %% Solve for the discrete-time value function!
 [value_funs, tauOut, extraOuts] = ...

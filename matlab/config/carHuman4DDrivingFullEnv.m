@@ -8,7 +8,8 @@ params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
-params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
+params.thetas = {[-5.6, 2.25, pi], [-2.25, -5.6, 3*pi/2]};
+%params.thetas = {[1.5-6.5, 8.25-6.5, pi], [4.75-6.5, 1.5-6.5, 3*pi/2]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
@@ -81,13 +82,14 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {11.5-6.5, 8.25-6.5, pi, 0.5}; 
+params.initial_state = {5.6, 2.25, pi, 0.5};
+% params.initial_state = {11.5-6.5, 8.25-6.5, pi, 0.5}; 
 % params.initial_state = {1.7, -3.5, pi/2, 0.5};
 % params.initial_state = {3, 1, pi, 0.5};
 % params.initial_state = {0, 0, 0, 0.5};
 
 % Params for Value Iteration. 
-params.gamma = 0.99; 
+params.gamma = 0.98; 
 params.eps = 0.01;
 
 % Variance on likelihood model: 
@@ -100,7 +102,7 @@ params.beta = 1;
 gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
-params.vel = 8;
+params.vel = 6; %8;
 params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
 params.angular_range = [-2*pi,0,2*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
 params.dt = gdisc4D(1)/params.vel; %0.16;%gdisc4D(1)/params.vel;

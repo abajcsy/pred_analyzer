@@ -271,6 +271,7 @@ classdef CarHumanBelief4D < handle
                 % \ell_\infty stopping condition
                 v_delta = v_fun - v_fun_prev;
                 max_dev = max(abs(v_delta),[],'all');
+                fprintf('    max diff in values: %f, eps: %f\n', max_dev, eps);
                 if max_dev < eps
                     break
                 else
