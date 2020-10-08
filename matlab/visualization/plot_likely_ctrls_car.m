@@ -37,18 +37,19 @@ for k=1:2:length(phis)
                 pu_true = params.dyn_sys.pugivenxtheta(u,state,q_fun);
                 pus = [pus, pu_true];
                 if pu_true > params.uThresh
-                    next_state = params.dyn_sys.dynamics(state,u);
-                    dx = next_state{1} - x;
-                    dy = next_state{2} - y;
-                    quiver(x,y,dx,dy,0.4,'Color', color);
-
-                    % if the control is "STOP", then plot a point.
-                    if u(1) == 0 && u(2) == 0
-                        scatter(x,y,sz,color);
-                    end
+                    scatter(x,y,sz,color);
+%                     next_state = params.dyn_sys.dynamics(state,u);
+%                     dx = next_state{1} - x;
+%                     dy = next_state{2} - y;
+%                     quiver(x,y,dx,dy,0.4,'Color', color);
+% 
+%                     % if the control is "STOP", then plot a point.
+%                     if u(1) == 0 && u(2) == 0
+%                         scatter(x,y,sz,color);
+%                     end
                 end
             end
-            pus
+%             pus
         end
     end
 end
