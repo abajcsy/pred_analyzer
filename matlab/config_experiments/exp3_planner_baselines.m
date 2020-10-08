@@ -1,40 +1,34 @@
-function params = contingencyPlannerParams()
-
-% Load "predicted" trajectories for the human for each goal.
-load('opt_spline_g1.mat')
-load('opt_spline_g2.mat')
-
-params.opt_spline_g1 = opt_spline_g1;
-params.opt_spline_g2 = opt_spline_g2;
+function params = exp3_planner_baselines()
 
 %% Grid representation.
 params.gmin = [-6.5,-6.5]; % should take into accound theta too?
 params.gmax = [6.5,6.5];
-params.gnums = [10,10];
+params.gnums = [20,20];
 params.g2d = createGrid(params.gmin, params.gmax, params.gnums);
 
 % 3D grid including orientation
 pdDim = 3;
+ntheta = 20;
 offset_pi = 0.01;
-params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax, pi], [params.gnums,10], pdDim);
+params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 
 %% Trajectory Info
-params.num_waypts = 50;
+params.num_waypts = 50; % Note: should match the number of steps predicted. 
 params.horizon = 8;
 params.dt = params.horizon/(params.num_waypts-1);
-% goal = [5.6, -2.25, 0, 0.01]; % g1
-params.goal = [2.25, 5.6, pi/2, 0.01]; % g2
+params.goal = [2.25, 5.6, pi/2, 0.01]; 
 
 % 13 meters / second ~= 30 mph
 % 8 meters / second ~= 18 mph (is the average speed at intersection) 
+dv = 1;
 params.max_linear_vel = 6.; 
-params.max_angular_vel = 1.;
+params.max_angular_vel = 1.; 
 params.footprint_rad = 0.2794; % note: this isn't used rn.... 
 
 %% Car info.
-params.car_len = 3; %4.5; % in m
-params.car_width = 1.2; %1.8; % in m
-params.car_rad = 1.2;
+params.car_len = 4.5; % in m
+params.car_width = 1.8; % in m
+params.car_rad = 2.25; %<-- choose radius = length/2. 1.2;
 
 %% Signed dist functions.
 % Axis-aligned rectangular obstacle convention is:
@@ -43,7 +37,7 @@ params.obstacles = {[-6.5, -6.5, 2, 2]...
             [4.5, -6.5, 2, 2], ...
             [-6.5, 4.5, 2, 2], ...
             [4.5, 4.5, 2, 2]};
-params.sd_obs = nan(params.g2d.shape);
+params.raw_sd_obs = nan(params.g2d.shape);
 
 %% Create obstacle signed distance (zero outside obstacle, negative inside).
 params.obs_padding = ones(1,2)*0.25;
@@ -64,14 +58,14 @@ for i=1:length(params.obstacles)
 
     sd = sd .* obs_mask;
 
-    params.sd_obs = min(params.sd_obs, sd);
+    params.raw_sd_obs = min(params.raw_sd_obs, sd);
 end
 
 %% ADD IN PENALTY IF YOU GO INTO OTHER LANE!
 lower = [4.5,-6.5] - params.obs_padding;
 upper = [6.5,6.5] + params.obs_padding;
 params.other_lane_sd = shapeRectangleByCorners(params.g2d, lower, upper);
-params.sd_obs = min(params.sd_obs, params.other_lane_sd);
+params.sd_obs = min(params.raw_sd_obs, params.other_lane_sd);
 
 %% ADD ANOTHER PENALTY IF YOU GO INTO OPPOSING LANE
 lower = [-4.5, 4.5] - params.obs_padding;
@@ -84,11 +78,13 @@ params.goal_radius = 1;
 params.sd_goal = -1 .* shapeCylinder(params.g2d, 3, params.goal(1:2), params.goal_radius); % 2D function (x,y)
 % params.sd_goal = -1 .* shapeCylinder(params.g3d, [], params.goal(1:3), params.goal_radius); % 3D function (x,y,theta)
 
-%% Setup probability over each goal.
-params.belief = [0.5,0.5]; % b(g1) and b(g2)
+%% Setup probability over model confidence
+params.goal_prior = [0.5, 0.5]; % b(g = g1) and b(g = g2)
 
 %% Create spline planner!
-params.planner = DrivingContingencyPlanner(params.num_waypts, ...
+fprintf('Setting up SINGLE SPLINE DRIVING PLANNER...\n');
+%% Create spline planner!
+params.planner = DrivingSplinePlanner(params.num_waypts, ...
                 params.horizon, ...
                 params.goal, ...
                 params.max_linear_vel, ...
@@ -96,10 +92,46 @@ params.planner = DrivingContingencyPlanner(params.num_waypts, ...
                 params.footprint_rad, ...
                 params.sd_obs, ...
                 params.sd_goal, ...
-                params.opt_spline_g1, ...
-                params.opt_spline_g2, ...
                 params.g2d, ...
                 params.g3d, ...
-                params.belief, ...
-                params.gmin, params.gmax, params.gnums);
+                params.gmin, params.gmax, params.gnums, ...
+                params.car_rad);
+fprintf('Done.\n');
+
+%% Create the predictors for each goal!
+goal1 = [-5.6, 2.25, pi, 0.01]; % g1 
+goal2 = [-2.25, -5.6, -pi/2, 0.01];  % g2
+
+% Predictor for human going to g1
+params.g1 = goal1;
+params.sd_goal_g1 = -1 .* shapeCylinder(params.g2d, 3, params.g1(1:2), params.goal_radius); % 2D function (x,y)
+params.predictor_g1 = DrivingSplinePlanner(params.num_waypts, ...
+                    params.horizon, ...
+                    params.g1, ...
+                    params.max_linear_vel, ...
+                    params.max_angular_vel, ...
+                    params.footprint_rad, ...
+                    params.raw_sd_obs, ...
+                    params.sd_goal_g1, ...
+                    params.g2d, ...
+                    params.g3d, ...
+                    params.gmin, params.gmax, params.gnums, ...
+                    params.car_rad);
+                
+% Predictor for human going to g2                
+params.g2 = goal2;
+params.sd_goal_g2 = -1 .* shapeCylinder(params.g2d, 3, params.g2(1:2), params.goal_radius); % 2D function (x,y)
+params.predictor_g2 = DrivingSplinePlanner(params.num_waypts, ...
+                    params.horizon, ...
+                    params.g2, ...
+                    params.max_linear_vel, ...
+                    params.max_angular_vel, ...
+                    params.footprint_rad, ...
+                    params.raw_sd_obs, ...
+                    params.sd_goal_g2, ...
+                    params.g2d, ...
+                    params.g3d, ...
+                    params.gmin, params.gmax, params.gnums, ...
+                    params.car_rad);
+            
 end

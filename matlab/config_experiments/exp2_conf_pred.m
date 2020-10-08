@@ -21,9 +21,9 @@ params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.x0 = [2, 0];                    % initial position of human (in m)
+params.x0 = [-1, 0]; %[2, 0];                    % initial position of human (in m)
 params.goal = [-3.5, 0];
-params.beta_prior = [0.5,0.5];
+params.beta_prior = [0.5,0.5]; % b(beta = low_conf), b(beta = high_conf)
 
 %% Create CONF-AWARE predictor.
 fprintf('Setting up CONFIDENCE-AWARE PREDICTOR...\n');

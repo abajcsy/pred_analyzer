@@ -40,15 +40,11 @@ classdef ConfContingencyPlanner < handle
                                         footprint_rad, ...
                                         sd_obs, ...
                                         sd_goal, ...
-                                        opt_preds, ...
-                                        frs_preds, ...
-                                        pred_times, ...
                                         g2d, ...
                                         g3d, ...
                                         belief, ...
                                         gmin, gmax, gnums, ...
                                         pthresh, ...
-                                        pred_g, ...
                                         dv)
             obj.num_waypts = num_waypts;
             obj.horizon = horizon;
@@ -65,17 +61,6 @@ classdef ConfContingencyPlanner < handle
             obj.gnums = gnums;
             obj.pthresh = pthresh;
             obj.belief = belief;
-            
-            % Grab all of the predictions and corresponding times.
-            % Assumes that 
-            obj.opt_preds = opt_preds;
-            obj.frs_preds = frs_preds;
-            obj.pred_times = pred_times;
-            obj.pred_g = pred_g;
-            
-            % Times along spline. 
-            obj.times = pred_times; %linspace(0,obj.horizon,obj.num_waypts);
-            obj.dt = obj.times(2) - obj.times(1); 
             
             % Discretization of x, y, theta, and velocity space
             gdisc = (gmax - gmin) ./ (gnums - 1);
@@ -95,7 +80,9 @@ classdef ConfContingencyPlanner < handle
             obj.disc_xythvel = [X(:), Y(:), TH(:), V(:)];
         end
         
-        %% TEST HELPER
+        %% Helper function which pre-computes all shared goals
+        %  which are dynamically feasible within the branching horizon. 
+        %  (this is used to speed up the contingency planner parameter search) 
         function dyn_feas_xythvel = ...
                 find_dyn_feas_shared_goal(obj, start, horiz, num_waypts)
             dyn_feas_xythvel = [];
@@ -113,26 +100,24 @@ classdef ConfContingencyPlanner < handle
             end
         end
         
-        function dyn_feas_xy = ...
-                find_dyn_feas_final_goal(obj, start, goal, horiz, num_waypts)
-            dyn_feas_xy = [];
-            for i=1:length(obj.disc_xy)
-                candidate_goal = [obj.disc_xy(i,:), goal(3), goal(4)];
-                curr_spline = ...
-                    spline(start, candidate_goal, horiz, num_waypts);
-                feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
-                                                  obj.max_linear_vel, ...
-                                                  obj.max_angular_vel, ...
-                                                  horiz);
-                if feasible_horiz <= horiz
-                    dyn_feas_xy = [dyn_feas_xy; candidate_goal(1:2)];
-                end
-            end
-        end
-        
         %% Plans a contingency plan from start to goal.
         function opt_plan = ...
-                contingency_plan(obj, start, goal, branch_t)
+                contingency_plan(obj, start, goal, ...
+                                opt_preds, frs_preds, pred_times, ...
+                                pred_g, belief, branch_t)
+            % Update belief
+            obj.belief = belief;
+            
+            % Grab all of the predictions and corresponding times.
+            % Assumes that 
+            obj.opt_preds = opt_preds;
+            obj.frs_preds = frs_preds;
+            obj.pred_times = pred_times;
+            obj.pred_g = pred_g;
+            
+            % Times along spline. 
+            obj.times = linspace(0, obj.horizon, obj.num_waypts); %pred_times; 
+            obj.dt = obj.times(2) - obj.times(1); 
             
             % Compute number of waypoints in each part of the plan.
             [~,end_idx] = min(abs(obj.times - branch_t));
@@ -146,42 +131,43 @@ classdef ConfContingencyPlanner < handle
             opt_reward = -100000000000000.0;
             opt_plan = {};
             
-            % set random seed
-            rng(5);
-            
-            % TEST! PRECOMPUTAtion.
+            % Precompute the set of dynamically feasible goal states 
+            % at which we branch into contingency plans. 
+            % Used to save on compute time. 
             feasible_shared_goals = ...
-                obj.find_dyn_feas_shared_goal(start, binned_branch_t, shared_num_waypts);
+                obj.find_dyn_feas_shared_goal(start, ...
+                                              binned_branch_t, ...
+                                              shared_num_waypts);
             
-            %obj.feasible_final_goals = ...
-            %    obj.find_dyn_feas_final_goal(start, goal, binned_horiz, obj.num_waypts);
-            
-            num_shared_goals = length(feasible_shared_goals); 
+            % Three options for how to search for shared goal:
+            % Option 1:
+            [num_shared_goals,~] = size(feasible_shared_goals); 
+            % Option 2:
             %num_shared_goals = length(obj.disc_xythvel); 
+            % Option 3:
+            % % set random seed
+            % % rng(5);
             %num_shared_goals = 500; % get a 500 samples 
+            
             for i=1:num_shared_goals 
                 fprintf('Evaluating %d / %d (%f percent)...\n', ...
                     i, num_shared_goals, 100*(i /num_shared_goals));
                 
-                % Option 1: grid search
-                %shared_goal = obj.disc_xythvel(i, :);
-                
-                % Option 1.5: precomp.
+                % Option 1: search only through precomputed dyn feasible
+                % goals.
                 shared_goal = feasible_shared_goals(i, :);
                 
-                %if i == 55
-                %    bla = 1;
-                %end
+                % Option 2: full grid search over parameters.
+                %shared_goal = obj.disc_xythvel(i, :);
                 
-                % Option 2: random sample
+                % Option 3: randomly sample a shared goal. 
                 %rand_idx = randi(length(obj.disc_xythvel));
                 %shared_goal = obj.disc_xythvel(rand_idx, :);
-                
-                % resample if candidate goal is inside obstacles.
-                while eval_u(obj.g2d, obj.sd_obs, shared_goal(1:2)) < 0
-                    rand_idx = randi(length(obj.disc_xythvel));
-                    shared_goal = obj.disc_xythvel(rand_idx, :);
-                end
+                % % resample if candidate goal is inside obstacles.
+                %while eval_u(obj.g2d, obj.sd_obs, shared_goal(1:2)) < 0
+                %    rand_idx = randi(length(obj.disc_xythvel));
+                %    shared_goal = obj.disc_xythvel(rand_idx, :);
+                %end
                  
                 % Compute shared spline. 
                 shared_spline = spline(start, shared_goal, ...
@@ -273,14 +259,14 @@ classdef ConfContingencyPlanner < handle
                         
                     if (reward > opt_reward)
                         
-                        figure(2)
-                        hold on
-                        plot(shared_spline{1}, shared_spline{2}, 'm');
-                        plot(spline_opt{1}, spline_opt{2}, 'r');
-                        plot(spline_frs{1}, spline_frs{2}, 'b');
-                        xlim([-6.5,6.5]);
-                        ylim([-6.5,6.5]);
-                        grid on
+%                         figure(2)
+%                         hold on
+%                         plot(shared_spline{1}, shared_spline{2}, 'm');
+%                         plot(spline_opt{1}, spline_opt{2}, 'r');
+%                         plot(spline_frs{1}, spline_frs{2}, 'b');
+%                         xlim([-6.5,6.5]);
+%                         ylim([-6.5,6.5]);
+%                         grid on
                         
                         opt_reward = reward;
                         opt_plan = {shared_spline, spline_opt, spline_frs};                        
@@ -442,12 +428,7 @@ classdef ConfContingencyPlanner < handle
             ys = curr_spline{2};
             ths = curr_spline{5};
             traj = [xs', ys'];
-            
-            % Find the time index to start and end the collision-checking 
-            % with the human trajectories.
-            [~,start_idx] = min(abs(obj.times - start_t));
-            [~,end_idx] = min(abs(obj.times - hor));
-            
+                       
             % TODO: add in penalty for orientation too?
             % TODO: add in penalty for human-driven vehicle prediction. 
             obs_r = eval_u(obj.g2d, obj.sd_obs, traj);
@@ -455,25 +436,59 @@ classdef ConfContingencyPlanner < handle
             
             % for each time, compute if the robot state is in the human
             % state.
-            % NOTE: ASSUMES THAT PREDICTION LENGTH AND TIME IS SAME AS
-            % SPLINE PLAN LENGTH AND TIME.
-            % circle_rad = 0.354;
             
-            frs_relevant_preds = obj.frs_preds(1,start_idx:end_idx);
-            opt_relevant_preds = obj.opt_preds(1,start_idx:end_idx);
+            % Find the time index to start and end the collision-checking 
+            % with the human trajectories.
+            [~,plan_start_idx] = min(abs(obj.times - start_t));
+            [~,plan_end_idx] = min(abs(obj.times - hor));
+            
+            [~,pred_start_idx] = min(abs(obj.pred_times - start_t));
+            [~,pred_end_idx] = min(abs(obj.pred_times - hor));
+            
+            relevent_plan_times = obj.times(plan_start_idx:plan_end_idx);
+            relevent_pred_times = obj.pred_times(pred_start_idx:pred_end_idx);
+            frs_relevant_preds = obj.frs_preds(1,pred_start_idx:pred_end_idx);
+            opt_relevant_preds = obj.opt_preds(1,pred_start_idx:pred_end_idx);
             
             human_r = zeros(size(obs_r));
             for i=1:length(traj)
+                curr_t = relevent_plan_times(i);
+                % find upper and lower times in preds for the current time.
+                [~, idx] = min(abs(relevent_pred_times - curr_t));
+                lower_idx = idx; 
+                upper_idx = idx;
+                if curr_t < relevent_pred_times(idx)
+                    lower_t = relevent_pred_times(idx);
+                    upper_t = relevent_pred_times(idx);
+                    alpha = 1.0;
+                elseif curr_t > relevent_pred_times(end) 
+                    lower_t = relevent_pred_times(idx);
+                    upper_t = relevent_pred_times(idx);
+                    alpha = 0.0;
+                else
+                    lower_t = relevent_pred_times(idx);
+                    upper_t = relevent_pred_times(idx+1);
+                    lower_idx = idx; 
+                    upper_idx = idx+1;
+                    alpha = (curr_t - lower_t) / (upper_t - lower_t);
+                end
+                
                 r = 0.0;
                 % compute the human reward.
                 if strcmp(coll_check, 'all') || strcmp(coll_check, 'frs')
-                    val = eval_u(obj.pred_g, frs_relevant_preds{i}, traj(i,:));
-                    if val > obj.pthresh
+                    lower_pred = frs_relevant_preds{lower_idx};
+                    upper_pred = frs_relevant_preds{upper_idx};
+                    final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
+                    val = eval_u(obj.pred_g, final_pred, traj(i,:));
+                    if val > 0.0 %obj.pthresh
                         r = -100.0;
                     end
                 elseif strcmp(coll_check, 'opt')
-                    val = eval_u(obj.pred_g, opt_relevant_preds{i}, traj(i,:));
-                    if val > obj.pthresh
+                    lower_pred = opt_relevant_preds{lower_idx};
+                    upper_pred = opt_relevant_preds{upper_idx};
+                    final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
+                    val = eval_u(obj.pred_g, final_pred, traj(i,:));
+                    if val > 0.0 %obj.pthresh
                         r = -100.0;
                     end
                 else
@@ -483,6 +498,22 @@ classdef ConfContingencyPlanner < handle
             end
             
             reward = sum(obs_r + goal_r + human_r); 
+        end
+        
+        %% Grab all the likely-enough predicted states.
+        function opt_eps = compute_likely_states(obj, preds, eps)
+
+            valid_indices = find(preds > 0);
+            valid_data = preds(valid_indices);
+            sorted_valid_data = sort(valid_data, 'descend');
+            eps_index = find(cumsum(sorted_valid_data) > (1 - eps), 1, 'first');
+
+            if isempty(eps_index)
+                % if we can't find likely enough states, then we should take max. 
+                eps_index = find(max(cumsum(sorted_valid_data)), 1, 'first');
+            end
+
+            opt_eps = sorted_valid_data(eps_index);
         end
         
         %% Updates the signed distance to goal.

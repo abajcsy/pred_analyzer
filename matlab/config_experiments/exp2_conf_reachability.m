@@ -1,4 +1,4 @@
-function params = exp2_confidence()
+function params = exp2_conf_reachability()
 
 %% Grid setup
 params.gmin = [-6, -6, 0];
@@ -9,9 +9,9 @@ params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.theta = [1.5,-5.5]; % [-5.5,0];
+params.theta = [-3.5, 0]; %[1.5,-5.5]; % [-5.5,0];
 params.betas = {0.1, 1}; % Note that first two betas are included in state
-params.trueBetaIdx = 2;
+params.trueBetaIdx = 1;
 
 %% Target Set Setup
 % tol = 1-0.85;
@@ -54,19 +54,33 @@ g_phys = createGrid(params.gmin(1:2)', ...
 params.reward_info.g = g_phys; 
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
-obs_data = imread("data/map.png");
-n_phys = numel(params.gmin) - numel(params.bdims);
-params.reward_info.obstacles = get_obs_map(obs_data, ...
-                                        params.gmin(1:n_phys), ...
-                                        params.gmax(1:n_phys), ...
-                                        params.gnums(1:n_phys));
+params.g2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
+pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
+repo = what('pred_analyzer');
+data_path = strcat(repo.path, '/matlab/data/');
+map_name = 'emptier_map.png'; 
+obs_data_3d = imread(strcat(data_path, map_name));
+obs_data_2d = rgb2gray(obs_data_3d);
+params.obs_map_full = (obs_data_2d == 0) .* -100.0 + (obs_data_2d > 0) .* 0.0;
+params.gimg = createGrid(params.gmin(1:2), params.gmax(1:2), size(params.obs_map_full));
+obs_map = eval_u(params.gimg, params.obs_map_full, pts);
+% make grid object to pass into reward info
+grid_obs = Grid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
+grid_obs.SetData(reshape(obs_map, params.gnums(1:2)));
+params.reward_info.obstacles = grid_obs;
                                     
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.theta = {params.theta(1), params.theta(2)};
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0,0,0.5}; %{2,-4,0.5}; %{1.5,1.5,0.5};
+params.initial_state = {1.069, 0, 0.7762};
+%{-1, 0, 0.5}           --> TTE: 1.379310 s
+%{-0.3103, 0, 0.6009}   --> TTE: 1.379310 s
+%{0.3793, 0, 0.6954}    --> TTE: 0.6897 s
+%{1.069, 0, 0.7762}     --> TTE: 0.6897 s
+%{1.7586, 0, 0.841}     --> TTE: 0 (this could also be close enough to conf)
+%{2.4483, 0, 0.8898}    --> TTE: 0 (already confident enough)
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 

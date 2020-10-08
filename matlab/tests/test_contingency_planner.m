@@ -1,11 +1,12 @@
-%clear all
+clear all
+close all
 
 %% Load up all the info.
 params = contingencyPlannerParams();
             
 %% Plan!
 % note: need a non-zero starting velocity to avoid singularities in spline
-branch_t = 1.5;
+branch_t = params.planner.dt*2; %1.5;
 start = [-5.6, -2.25, 0, 0.01]; 
 opt_plan = ...
     params.planner.contingency_plan(start, params.goal,  branch_t);

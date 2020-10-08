@@ -223,7 +223,10 @@ classdef ConfAwarePredictor
             %   P(b = 0.1 | x, u) = 
             %       P(u | x, b = 0.1)*P(b = 0.1)/[P(u | x, b = 0.1)*P(b =
             %                       0.1) + P(u | x, b = 1)*P(b = 1)]
+            max_p = 0.99;
+            min_p = 0.01;
             posterior(1) = pub1*prior(1)/(pub1*prior(1) + pub2*prior(2));
+            posterior(1) = min(max(posterior(1), min_p), max_p);
             posterior(2) = (1 - posterior(1));
         end
         

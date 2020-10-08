@@ -60,7 +60,7 @@ classdef MDPHumanConfidence3D < handle
             end
             
             % Pre-compute the Q-functions for each theta.
-            fprintf('Pre-computing Q-function for theta');
+            fprintf('Pre-computing Q-function for fixed theta (goal)...\n');
             st = tic;
             [v_f, q_f] = obj.compute_q_fun(gamma, eps);
             obj.v_fun = v_f;

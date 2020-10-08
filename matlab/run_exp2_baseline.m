@@ -7,8 +7,8 @@ robot_params = exp2_planner_baselines();
 %% Load up all the info for the human.
 % Setup what kind of collision checking we will do
 %coll_check = 'conf'; 
-coll_check = 'opt'; 
-%coll_check = 'frs'; 
+%coll_check = 'opt'; 
+coll_check = 'frs'; 
 
 if strcmp(coll_check, 'conf')
     human_params = exp2_conf_pred();
@@ -21,10 +21,15 @@ else
 end
 
 %% Video creation!
-vout = VideoWriter(strcat(coll_check,'_baseline.mp4'),'MPEG-4');
-vout.Quality = 100;
-vout.FrameRate = 5;
-vout.open;
+save_video = false;
+if save_video 
+    curr_date = datestr(now,'mm_dd_yyyy_HH_MM');
+    filename = strcat('exp2_',coll_check,'_baseline_',curr_date,'.mp4');
+    vout = VideoWriter(filename,'MPEG-4');
+    vout.Quality = 100;
+    vout.FrameRate = 5;
+    vout.open;
+end
 
 %% PLOT!
 figure(1)
@@ -42,20 +47,23 @@ qrg.Marker = 'o';
 qrg.MarkerFaceColor = 'k';
 % plot human goal.
 scatter(human_params.goal(1), human_params.goal(2), 'r');
-% plot human state
-hsh = scatter(human_params.x0(1), human_params.x0(2), 'r', 'filled');
 xlim([human_params.gmin(1), human_params.gmax(1)])
 ylim([human_params.gmin(2), human_params.gmax(2)])
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup robot start state. 
-r_start = [1, 4, -pi/4, 0.01];
+r_start = [2, 2, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
 rsh = scatter(r_start(1), r_start(2), 'k', 'filled');
+
+%% Setup human start state. 
+h_start = [-1, 0];
+% plot human state
+hsh = scatter(h_start(1), h_start(2), 'r', 'filled');
 
 %% Setup simulation horizon. 
 simT = 10;
-h_xcurr = human_params.x0;
+h_xcurr = h_start;
 r_xcurr = r_start;
 
 if strcmp(coll_check, 'conf')
@@ -67,6 +75,7 @@ gray_c = [0.8,0.8,0.8];
 rph = [];
 tb1 = [];
 tb2 = [];
+all_contour_h = [];
 
 for t=1:simT
     % Predict human!
@@ -89,13 +98,37 @@ for t=1:simT
     if t > 2
         h_ctrl = 0;
     else
-        h_ctrl = pi;
+        h_ctrl = 0; %pi;
     end
     h_xnext = [h_xcurr(1) + human_params.dt * cos(h_ctrl), ...
                h_xcurr(2) + human_params.dt * sin(h_ctrl)];
     
     % Update robot state.
     r_xnext = [robot_plan{1}(2), robot_plan{2}(2), robot_plan{5}(2), robot_plan{3}(2)];
+    
+    %% Plot the predictions.
+    r_color = linspace(0.1,0.9,length(human_preds));
+    if ~isempty(all_contour_h)
+        for i=1:length(all_contour_h)
+            delete(all_contour_h(i))
+        end
+    end
+    for i=1:length(human_preds)
+        levels = [-0.1,0.1];
+        preds = human_preds{i};
+        if strcmp(coll_check, 'conf')
+            eps = robot_params.planner.compute_likely_states(human_preds{i}, robot_params.pthresh);
+            levels = [-0.1,eps];
+            if eps == 0.0
+                preds = (human_preds{i} > eps) .* 1.0 + (human_preds{i} <= eps) .* 0.0;
+                levels = [1,1];
+            end
+        end
+        
+        [~,h] = contour(human_params.pred_g.xs{1}, human_params.pred_g.xs{2}, preds, ...
+            levels, 'Color', [1,r_color(i),r_color(i)]);
+        all_contour_h = [all_contour_h, h];
+    end
     
     %% Plot robot plan
     hsh.CData = gray_c;
@@ -113,13 +146,16 @@ for t=1:simT
             delete(tb1)
             delete(tb2)
         end
-        tb1 = text(-4.7,-1,strcat('b_', num2str(t-1),'(low conf) = ', num2str(pbeta(1))));
+        tb1 = text(-4.7,-1,strcat('b_{', num2str(t-1),'}(low conf) = ', num2str(pbeta(1))));
         tb1.Color = 'r';
-        tb2 = text(-4.7,-1.5,strcat('b_', num2str(t-1),'(high conf) = ', num2str(pbeta(2))));
+        tb2 = text(-4.7,-1.5,strcat('b_{', num2str(t-1),'}(high conf) = ', num2str(pbeta(2))));
         tb2.Color = 'r';
     end
-    current_frame = getframe(gcf); %gca does just the plot
-    writeVideo(vout,current_frame);
+    
+    if save_video
+        current_frame = getframe(gcf); %gca does just the plot
+        writeVideo(vout,current_frame);
+    end
     pause(0.1)
     
     %% Update belief over betas.
@@ -132,4 +168,6 @@ for t=1:simT
     r_xcurr = r_xnext;
 end
 
-vout.close()
+if save_video
+    vout.close()
+end

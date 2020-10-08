@@ -1,6 +1,6 @@
-function params = exp2_planner_baselines()
+function params = exp2_contingency_planner()
 
-% Load "predicted" trajectories for the human for each beta value. 
+% % Load "predicted" trajectories for the human for each beta value. 
 % load('opt_preds.mat') % TODO: this technically shouldn't be perfectly optimal ... 
 % params.opt_preds = preds;
 % params.pred_times_real = real_times;
@@ -9,33 +9,30 @@ function params = exp2_planner_baselines()
 % 
 % load('frs_preds.mat')
 % params.frs_preds = preds;
-% 
-% %load('conf_preds_5050.mat')
-% load('conf_preds_1090.mat')
-% params.conf_preds = preds;
 
 %% Grid representation.
 params.gmin = [-6,-6]; % should take into accound theta too?
 params.gmax = [6,6];
-params.gnums = [10,10];
+params.gnums = [15,15];
 params.g2d = createGrid(params.gmin, params.gmax, params.gnums);
 
 % 3D grid including orientation
 pdDim = 3;
-ntheta = 10;
-params.g3d = createGrid([params.gmin,-pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
+ntheta = 15;
+offset_pi = 0.01;
+params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 
 %% Trajectory Info
-params.num_waypts = 12; % Note: should match the number of steps predicted. 
+params.num_waypts = 25; % match the number of waypts predicted.
 params.horizon = 8;
 params.dt = params.horizon/(params.num_waypts-1);
 params.goal = [3, -5, -pi/2, 0.01]; 
 
 % 13 meters / second ~= 30 mph
 % 8 meters / second ~= 18 mph (is the average speed at intersection) 
-dv = 1;
+dv = 0.25;
 params.max_linear_vel = 2.; %0.65; % turtlebot max linear velocity
-params.max_angular_vel = 1.; %1.5; % actual turtlebot angular vel is = pi
+params.max_angular_vel = 0.5; %1.5; % actual turtlebot angular vel is = pi
 params.footprint_rad = 0.354; % note: this isn't used rn.... 
 
 %% Car info.
@@ -64,12 +61,11 @@ params.sd_goal = -1 .* shapeCylinder(params.g2d, 3, params.goal(1:2), params.goa
 % params.sd_goal = -1 .* shapeCylinder(params.g3d, [], params.goal(1:3), params.goal_radius); % 3D function (x,y,theta)
 
 %% Setup probability over model confidence
-params.belief = [0.5, 0.5]; % b(beta = 0.1) and b(beta = 1)
+params.belief = [0.5,0.5]; % b(beta = 0.1) and b(beta = 1)
 params.pthresh = 0.1;
 
 %% Create spline planner!
-fprintf('Setting up SINGLE SPLINE ROBOT PLANNER...\n');
-params.planner = ConfSplinePlanner(params.num_waypts, ...
+params.planner = ConfContingencyPlanner(params.num_waypts, ...
                 params.horizon, ...
                 params.goal, ...
                 params.max_linear_vel, ...
@@ -79,8 +75,8 @@ params.planner = ConfSplinePlanner(params.num_waypts, ...
                 params.sd_goal, ...
                 params.g2d, ...
                 params.g3d, ...
+                params.belief, ...
                 params.gmin, params.gmax, params.gnums, ...
-                params.pthresh);
-fprintf('Done.\n');
-            
+                params.pthresh, ...
+                dv);
 end

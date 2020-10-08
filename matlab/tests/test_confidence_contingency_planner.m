@@ -3,9 +3,31 @@ close all
 
 %% Load up all the info.
 params = exp2_contingency_planner();
+
+%% Load up all the info for the human predictors.
+% Setup what kind of predictors we have
+opt_human_params = exp2_opt_pred();
+frs_human_params = exp2_frs_pred();
+conf_human_params = exp2_conf_pred();
+
+%% Robot start.
 r_start = [1, 4, -pi/4, 0.01]; 
 
-% PLOT!
+%% Setup human start state. 
+h_start = [-1, 0];
+
+%% Prior
+pbeta = params.belief;
+
+%% Predict human!
+fprintf('Predicting...\n');
+opt_preds = ...
+    opt_human_params.predictor.predict(h_start, opt_human_params.T);
+
+frs_preds = ...
+    frs_human_params.predictor.predict(h_start, frs_human_params.T);
+
+%% PLOT!
 figure(1)
 hold on
 
@@ -20,28 +42,32 @@ set(ph, 'EdgeColor', 'none');
 qrg = quiver(params.goal(1), params.goal(2), cos(params.goal(3)), sin(params.goal(3)), 'k');
 qrg.Marker = 'o';
 qrg.MarkerFaceColor = 'k';
-% plot robot state.
-% qrs = quiver(r_start(1), r_start(2), cos(r_start(3)), sin(r_start(3)), 'k');
-% qrs.Marker = 'o';
-% qrs.MarkerEdgeColor = 'k';
-% qrs.MarkerFaceColor = 'w';
 % plot human goal.
-h_goal = [-3.5, 0];
-h_x0 = [2, 0];  
-% plot human goal.
-scatter(h_goal(1), h_goal(2), 'r');
+scatter(opt_human_params.goal(1), opt_human_params.goal(2), 'r');
 % plot human state
-scatter(h_x0(1), h_x0(2), 'r', 'filled');
+scatter(h_start(1), h_start(2), 'r', 'filled');
 xlim([params.gmin(1), params.gmax(1)])
 ylim([params.gmin(2), params.gmax(2)])
             
-%% Plan!
-% note: need a non-zero starting velocity to avoid singularities in spline
-branch_t = 1.38; % for 50/50 prior 
-opt_plan = ...
-    params.planner.contingency_plan(r_start, params.goal, branch_t);
 
-% load('conf_cont_plan.mat');
+%% Branch times!
+%{-1, 0, 0.5}           --> TTE: 1.379310 s
+%{-0.3103, 0, 0.6009}   --> TTE: 1.379310 s
+%{0.3793, 0, 0.6954}    --> TTE: 0.6897 s
+%{1.069, 0, 0.7762}     --> TTE: 0.6897 s
+%{1.7586, 0, 0.841}     --> TTE: 0 (this could also be close enough to conf)
+%{2.4483, 0, 0.8898}    --> TTE: 0 (already confident enough)
+branch_times = [1.379310, 1.379310, 0.6897, 0.6897, 0, 0];
+branch_t = branch_times(1);
+
+%% Plan!
+opt_plan = ...
+    params.planner.contingency_plan(r_start, params.goal, ...
+                                   opt_preds, frs_preds, ...
+                                   opt_human_params.real_times, ...
+                                   opt_human_params.pred_g, ...
+                                   pbeta, ...
+                                   branch_t);
 
 shared_spline = opt_plan{1};
 spline_opt = opt_plan{2};
