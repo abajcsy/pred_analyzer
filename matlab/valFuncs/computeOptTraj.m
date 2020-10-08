@@ -74,7 +74,7 @@ while iter < tauLength
         val = value_fun_next(znext_lin_idx{1});
         val_per_ctrl = [val_per_ctrl, val];
     end
-    
+%     val_per_ctrl
     % Find the control which maximizes or minimizes next value. 
     if strcmp(uMode, "min")
         [optVal, ctrl_ind] = min(val_per_ctrl, [], 2);

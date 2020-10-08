@@ -3,7 +3,7 @@ function params = carHuman4DDrivingFullEnv()
 %% Grid setup
 params.gmin = [-6.5, -6.5, 0, 0];
 params.gmax = [6.5, 6.5, 2*pi, 1];
-params.gnums = [10, 10, 10, 10];
+params.gnums = [20, 20, 15, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = {4}; % dimension(s) which contain the belief
 
@@ -45,12 +45,12 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 % params.initial_value_fun(params.initial_value_fun > 0) = 0;
 %% Time vector
 t0 = 1;
-num_timesteps = 20;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
-params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "max"; % min or max
+params.uThresh = 0.2; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -102,7 +102,7 @@ gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 % dt induced by discretization
 params.vel = 8;
 params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
-params.angular_range = [-4*pi,-2*pi,0,2*pi,4*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
+params.angular_range = [-2*pi,0,2*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
 params.dt = gdisc4D(1)/params.vel; %0.16;%gdisc4D(1)/params.vel;
 
 % range of belief values
@@ -176,6 +176,7 @@ params.extraArgs.stopInit = params.initial_state;
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)
 params.minWith = "minVWithL"; 
+% params.minWith = "none"; 
 
 %% Optimal control reconstruction params
 % Interpolate the value function when computing the opt ctrl?
