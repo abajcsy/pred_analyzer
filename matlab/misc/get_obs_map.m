@@ -5,6 +5,7 @@ function grid_obs = get_obs_map(A, gmin, gmax, sz)
     m = sz(1);
     n = sz(2);
     
+    % TODO: DIMENSION ISSUES!
     gnums = size(A);
     g = createGrid(gmin, gmax, gnums);
 
