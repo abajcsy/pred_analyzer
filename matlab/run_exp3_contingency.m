@@ -5,12 +5,12 @@ close all
 robot_params = exp3_contingency_planner();
 
 %% Initial human state
-h_x0 = [5.6, 2.25, pi, 0.01]; 
+h_x0 = [6, 1.83, pi, 0.01]; 
 %true_human_goal = 'g1'; % pick which goal the simulated human is going to.
 true_human_goal = 'g2';
 
 %% Setup robot start state. 
-r_start = [-5.6, -2.25, 0, 0.01]; 
+r_start = [-6, -1.83, 0, 0.01]; 
 
 %% Video creation!
 save_video = false;
@@ -50,8 +50,20 @@ rsh.Marker = 'o';
 rsh.MarkerFaceColor = 'k';
     
 % Plot obstacles.
-contour(robot_params.g2d.xs{1}, robot_params.g2d.xs{2}, robot_params.raw_sd_obs, [0,0.1], ...
-    'Color', [0.4,0.4,0.4], 'LineStyle', '-', 'LineWidth', 2);
+%contour(robot_params.g2d.xs{1}, robot_params.g2d.xs{2}, robot_params.raw_sd_obs, [0,0.1], ...
+%    'Color', [0.4,0.4,0.4], 'LineStyle', '-', 'LineWidth', 2);
+for oi=1:length(robot_params.obstacles)
+    obs_info = robot_params.obstacles{oi};
+    obs_min = obs_info(1:2);
+
+    x_min = obs_min(1);
+    y_min = obs_min(2);
+    rectangle('position', obs_info, ...
+                'curvature', [0.2,0.2], ...
+                'EdgeColor', 'k');
+end
+
+% Set limits.
 xlim([robot_params.gmin(1), robot_params.gmax(1)])
 ylim([robot_params.gmin(2), robot_params.gmax(2)])
 % Plot the lane boundaries.
@@ -63,7 +75,6 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup simulation horizon. 
-simT = 50;
 h_xcurr = h_x0;
 r_xcurr = r_start;
 
@@ -83,6 +94,8 @@ g1_th = [];
 g2_th = [];
 tb1 = [];
 tb2 = [];
+hrecth = [];
+rrecth = [];
 
 %% DO STUFF!
 % Predict human!
@@ -103,6 +116,8 @@ shared_plan = robot_plan{1};
 g1_plan = robot_plan{2};
 g2_plan = robot_plan{3};
          
+
+simT = length(human_preds_g2{1}); %50;
 for t=1:simT
     
     % Update human state based on the true goal they are going to.
@@ -115,10 +130,10 @@ for t=1:simT
     end
     
     % Update robot state.
-    if t < length(shared_plan{1})
-        r_xnext = [shared_plan{1}(t+1), shared_plan{2}(t+1), shared_plan{5}(t+1), shared_plan{3}(t+1)];
+    if t <= length(shared_plan{1})
+        r_xnext = [shared_plan{1}(t), shared_plan{2}(t), shared_plan{5}(t), shared_plan{3}(t)];
     else
-        tidx = t - length(shared_plan{1}) + 1;
+        tidx = t - length(shared_plan{1});
         if strcmp(true_human_goal, 'g1')
             r_xnext = [g1_plan{1}(tidx), g1_plan{2}(tidx), g1_plan{5}(tidx), g1_plan{3}(tidx)];
         else
@@ -140,6 +155,8 @@ for t=1:simT
     if ~isempty(g1_th) && ~isempty(g2_th)
         delete(g1_th);
         delete(g2_th);
+        delete(hrecth);
+        delete(rrecth);
     end
     % plot human preds
     g1_th = scatter(human_preds_g1{1}, human_preds_g1{2}, 'markerfacecolor', 'none', 'markeredgecolor', orange_c);
@@ -158,6 +175,17 @@ for t=1:simT
     rsh = quiver(r_xcurr(1), r_xcurr(2), cos(r_xcurr(3)), sin(r_xcurr(3)), 'k', 'filled');
     rsh.Marker = 'o';
     rsh.MarkerFaceColor = 'k';
+    
+    pos = [h_xcurr(1)-robot_params.car_rad, h_xcurr(2)-robot_params.car_rad, ...
+           robot_params.car_rad*2, robot_params.car_rad*2];
+    hrecth = rectangle('position', pos, ...
+                'curvature', [1,1], ...
+                'EdgeColor', 'r');
+    pos = [r_xcurr(1)-robot_params.car_rad, r_xcurr(2)-robot_params.car_rad, ...
+           robot_params.car_rad*2, robot_params.car_rad*2];
+    rrecth = rectangle('position', pos, ...
+                'curvature', [1,1], ...
+                'EdgeColor', 'k');
     
     % Plot the belief.
     if ~isempty(tb1)

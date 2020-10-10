@@ -412,12 +412,14 @@ classdef DrivingContingencyPlanner < handle
             diff_hg1 = traj - hg1_traj(start_idx:end_idx,:);
             diff_hg2 = traj - hg2_traj(start_idx:end_idx,:);
             
+            % do collision checking between the body of the robot and human 
+            % vehicle which are both approximated by circles w/radius circle_rad
             d_to_hg1 = sqrt(diff_hg1(:,1).^2 + ...
                             diff_hg1(:,2).^2) - ...
-                            obj.circle_rad;
+                            (obj.circle_rad + obj.circle_rad); 
             d_to_hg2 = sqrt(diff_hg2(:,1).^2 + ...
                             diff_hg2(:,2).^2) - ...
-                            obj.circle_rad;
+                            (obj.circle_rad + obj.circle_rad); 
             
             % compute the human reward.
             if strcmp(coll_check, 'all')

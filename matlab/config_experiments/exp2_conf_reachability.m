@@ -3,13 +3,13 @@ function params = exp2_conf_reachability()
 %% Grid setup
 params.gmin = [-6, -6, 0];
 params.gmax = [6, 6, 1];
-params.gnums = [30, 30, 25];
+params.gnums = [45, 45, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.theta = [-3.5, 0]; %[1.5,-5.5]; % [-5.5,0];
+params.theta = [-5.5, -1]; %[1.5,-5.5]; % [-5.5,0];
 params.betas = {0.1, 1}; % Note that first two betas are included in state
 params.trueBetaIdx = 1;
 
@@ -35,7 +35,7 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 20;
+num_timesteps = 10;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -58,10 +58,10 @@ params.g2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
 pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/data/');
-map_name = 'emptier_map.png'; 
-obs_data_3d = imread(strcat(data_path, map_name));
-obs_data_2d = rgb2gray(obs_data_3d);
-params.obs_map_full = (obs_data_2d == 0) .* -100.0 + (obs_data_2d > 0) .* 0.0;
+map_name = 'cluttered_map_doorway.png'; %'emptier_map.png'; 
+obs_data_2d = imread(strcat(data_path, map_name));
+%obs_data_2d = rgb2gray(obs_data_3d);
+params.obs_map_full = (obs_data_2d == 0) .* 1 + (obs_data_2d > 0) .* 0;
 params.gimg = createGrid(params.gmin(1:2), params.gmax(1:2), size(params.obs_map_full));
 obs_map = eval_u(params.gimg, params.obs_map_full, pts);
 % make grid object to pass into reward info
@@ -83,7 +83,7 @@ params.initial_state = {1.069, 0, 0.7762};
 %{2.4483, 0, 0.8898}    --> TTE: 0 (already confident enough)
 
 % Params for Value Iteration. 
-params.gamma = 0.99; 
+params.gamma = 0.98; 
 params.eps = 0.01;
 
 % Variance on likelihood model: 
@@ -154,7 +154,7 @@ end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
-params.extraArgs.stopInit = params.initial_state;
+%params.extraArgs.stopInit = params.initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)

@@ -212,6 +212,9 @@ classdef MDPHumanConfidence3D < handle
                     penalty_obstacle = zeros(size(state_grid{1}));
                 end
                 
+                %g = createGrid(g_min, g_max, g_nums)
+                %surf(g.xs{1}, g.xs{2}, penalty_obstacle)
+                
                 % action costs
                 if u_i(1) == 0 && u_i(2) == 0
                     % Stop
@@ -246,6 +249,7 @@ classdef MDPHumanConfidence3D < handle
                 % \ell_\infty stopping condition
                 v_delta = v_fun - v_fun_prev;
                 max_dev = max(abs(v_delta),[],'all');
+                fprintf('    Max diff in value funs: %f, eps: %f\n', max_dev, eps);
                 if max_dev < eps
                     break
                 else
@@ -323,7 +327,7 @@ classdef MDPHumanConfidence3D < handle
         
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
-            q_fun = obj.q_funs{theta_idx};
+            q_fun = obj.q_fun;
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -341,20 +345,20 @@ classdef MDPHumanConfidence3D < handle
             colorbar
             
             % plot obstacle.
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                        
-                    x_min = obs_min(1);
-                    y_min = obs_min(2);
-                    p_min = 1;
-                    l = [obs_info(3), ...
-                        obs_info(4), ...
-                        9];
-                    plotcube(l,[x_min y_min p_min], .5, [1 1 1]);
-                end
-            end
+%             if obj.has_obs
+%                 for oi = 1:length(obj.reward_info.obstacles)
+%                     obs_info = obj.reward_info.obstacles{oi};
+%                     obs_min = obs_info(1:2);
+%                         
+%                     x_min = obs_min(1);
+%                     y_min = obs_min(2);
+%                     p_min = 1;
+%                     l = [obs_info(3), ...
+%                         obs_info(4), ...
+%                         9];
+%                     plotcube(l,[x_min y_min p_min], .5, [1 1 1]);
+%                 end
+%             end
             
             view(0,90);
             title(strcat("Optimal policy for theta=", num2str(theta_idx),". Color at state => opt control"));
@@ -405,7 +409,7 @@ classdef MDPHumanConfidence3D < handle
         
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy_from_x0(obj, xinit, theta_idx)
-            q_fun = obj.q_funs{theta_idx};
+            q_fun = obj.q_fun;
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -452,48 +456,26 @@ classdef MDPHumanConfidence3D < handle
             g2Color = [38., 138., 240.]/255.;
     
             % g1
-            scatter(obj.reward_info.thetas{1}{1}, ...
-                obj.reward_info.thetas{1}{2}, ...
+            scatter(obj.reward_info.theta{1}, ...
+                obj.reward_info.theta{2}, ...
                 'linewidth', 2, ...
                 'marker', 'o', ...
                 'markeredgecolor', g1Color, ...
                 'markerfacecolor', g1Color);
             g1Txt = 'g1';
-            t1 = text(obj.reward_info.thetas{1}{1}-0.05, ...
-                        obj.reward_info.thetas{1}{2}-0.3, ...
+            t1 = text(obj.reward_info.theta{1}-0.05, ...
+                        obj.reward_info.theta{2}-0.3, ...
                         0.55, g1Txt);
             t1.FontSize = 11;
             t1.Color = g1Color;
             
-            % g2
-            scatter(obj.reward_info.thetas{2}{1}, ...
-                obj.reward_info.thetas{2}{2}, ...
-                'linewidth', 2, ...
-                'marker', 'o', ...
-                'markeredgecolor', g2Color, ...
-                'markerfacecolor', g2Color);
-            g2Txt = 'g2';
-            t2 = text(obj.reward_info.thetas{2}{1}-0.2, ...
-                        obj.reward_info.thetas{2}{2}-0.3, ...
-                        0.55, g2Txt);
-            t2.FontSize = 11;
-            t2.Color = g2Color;
-            
             % plot obstacle.
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                        
-                    x_min = obs_min(1);
-                    y_min = obs_min(2);
-                    p_min = 1;
-                    l = [obs_info(3), ...
-                        obs_info(4), ...
-                        9];
-                    plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
-                end
-            end
+            bandw_cmap = [0,0,0;1,1,1]; %[1,1,1;0,0,0];
+            colormap(bandw_cmap)
+            ph = pcolor(obj.reward_info.obstacles.g{1}, ...
+                        obj.reward_info.obstacles.g{2}, ...
+                        obj.reward_info.obstacles.data);
+            set(ph, 'EdgeColor', 'none');
             set(gcf,'color','w');
             xlim([obj.reward_info.g.min(1), obj.reward_info.g.max(1)]);
             ylim([obj.reward_info.g.min(2), obj.reward_info.g.max(2)]);

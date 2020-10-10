@@ -1,14 +1,14 @@
 function params = exp3_contingency_planner()
 
 %% Grid representation.
-params.gmin = [-6.5,-6.5]; % should take into accound theta too?
-params.gmax = [6.5,6.5];
-params.gnums = [15,15];
+params.gmin = [-7.75, -7.75]; % should take into accound theta too?
+params.gmax = [7.75, 7.75];
+params.gnums = [16,16];
 params.g2d = createGrid(params.gmin, params.gmax, params.gnums);
 
 % 3D grid including orientation
 pdDim = 3;
-ntheta = 15;
+ntheta = 16;
 offset_pi = 0.01;
 params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 
@@ -16,7 +16,7 @@ params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax,pi], [params.g
 params.num_waypts = 50; % Note: should match the number of steps predicted. 
 params.horizon = 8;
 params.dt = params.horizon/(params.num_waypts-1);
-params.goal = [2.25, 5.6, pi/2, 0.01]; 
+params.goal = [1.83, 6.5, pi/2, 0.01]; 
 
 % 13 meters / second ~= 30 mph
 % 8 meters / second ~= 18 mph (is the average speed at intersection) 
@@ -26,17 +26,17 @@ params.max_angular_vel = 1.;
 params.footprint_rad = 0.2794; % note: this isn't used rn.... 
 
 %% Car info.
-params.car_len = 4.5; % in m
+params.car_len = 4.2; % in m
 params.car_width = 1.8; % in m
-params.car_rad = 2.25; %<-- choose radius = length/2. 1.2;
+params.car_rad = 1.2; %1.9; %2.1; %<-- choose radius = length/2. % 1.2;
 
 %% Signed dist functions.
 % Axis-aligned rectangular obstacle convention is:
 %       [lower_x, lower_y, width, height]
-params.obstacles = {[-6.5, -6.5, 2, 2]...
-            [4.5, -6.5, 2, 2], ...
-            [-6.5, 4.5, 2, 2], ...
-            [4.5, 4.5, 2, 2]};
+params.obstacles = {[-7.75, -7.75, 4.1, 4.1]...
+            [3.65, -7.75, 4.1, 4.1], ...
+            [-7.75, 3.65, 4.1, 4.1], ...
+            [3.65, 3.65, 4.1, 4.1]};
 params.raw_sd_obs = nan(params.g2d.shape);
 
 %% Create obstacle signed distance (zero outside obstacle, negative inside).
@@ -62,14 +62,14 @@ for i=1:length(params.obstacles)
 end
 
 %% ADD IN PENALTY IF YOU GO INTO OTHER LANE!
-lower = [4.5,-6.5] - params.obs_padding;
-upper = [6.5,6.5] + params.obs_padding;
+lower = [3.65,-7.75] - params.obs_padding;
+upper = [7.75,7.75] + params.obs_padding;
 params.other_lane_sd = shapeRectangleByCorners(params.g2d, lower, upper);
 params.sd_obs = min(params.raw_sd_obs, params.other_lane_sd);
 
 %% ADD ANOTHER PENALTY IF YOU GO INTO OPPOSING LANE
-lower = [-4.5, 4.5] - params.obs_padding;
-upper = [0, 6.5] + params.obs_padding;
+lower = [-3.65, 3.65] - params.obs_padding;
+upper = [0, 7.75] + params.obs_padding;
 params.final_lane_sd = shapeRectangleByCorners(params.g2d, lower, upper);
 params.sd_obs = min(params.sd_obs, params.final_lane_sd);
 
@@ -79,7 +79,7 @@ params.sd_goal = -1 .* shapeCylinder(params.g2d, 3, params.goal(1:2), params.goa
 % params.sd_goal = -1 .* shapeCylinder(params.g3d, [], params.goal(1:3), params.goal_radius); % 3D function (x,y,theta)
 
 %% Setup probability over model confidence
-params.goal_prior = [0.1, 0.9]; % b(g = g1 = straight) and b(g = g2 = left)
+params.goal_prior = [0.5, 0.5]; % b(g = g1 = straight) and b(g = g2 = left)
 
 %% Create spline planner!
 fprintf('Setting up CONTINGENCY DRIVING PLANNER...\n');
@@ -99,8 +99,8 @@ params.planner = DrivingContingencyPlanner(params.num_waypts, ...
 fprintf('Done.\n');
 
 %% Create the predictors for each goal!
-goal1 = [-5.6, 2.25, pi, 0.01]; % g1 
-goal2 = [-2.25, -5.6, -pi/2, 0.01];  % g2
+goal1 = [-6.5, 1.83, pi, 0.01]; % g1 
+goal2 = [-1.83, -6.5, -pi/2, 0.01];  % g2
 
 % Predictor for human going to g1
 params.g1 = goal1;

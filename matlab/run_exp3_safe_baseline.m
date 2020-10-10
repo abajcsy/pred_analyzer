@@ -5,18 +5,21 @@ close all
 robot_params = exp3_planner_baselines();
 
 %% Initial human state
-h_x0 = [5.6, 2.25, pi, 0.01]; 
-%true_human_goal = 'g1'; % pick which goal the simulated human is going to.
-true_human_goal = 'g2';
+h_x0 = [6, 1.83, pi, 0.01]; 
+true_human_goal = 'g1'; % pick which goal the simulated human is going to.
+%true_human_goal = 'g2';
 
 %% Setup robot start state. 
-r_start = [-5.6, -2.25, 0, 0.01]; 
+r_start = [-6, -1.83, 0, 0.01]; 
 
 %% Video creation!
-vout = VideoWriter(strcat('exp3_safe_baseline_',true_human_goal,'_',datestr(now,'HH_MM_SS_FFF'),'.mp4'),'MPEG-4');
-vout.Quality = 100;
-vout.FrameRate = 5;
-vout.open;
+save_video = false;
+if save_video
+    vout = VideoWriter(strcat('exp3_safe_baseline_',true_human_goal,'_',datestr(now,'HH_MM_SS_FFF'),'.mp4'),'MPEG-4');
+    vout.Quality = 100;
+    vout.FrameRate = 5;
+    vout.open;
+end
 
 %% PLOT!
 figure(1)
@@ -43,8 +46,20 @@ rsh.Marker = 'o';
 rsh.MarkerFaceColor = 'k';
     
 % Plot obstacles.
-contour(robot_params.g2d.xs{1}, robot_params.g2d.xs{2}, robot_params.raw_sd_obs, [-0.1,0.1], ...
-    'Color', [0.4,0.4,0.4], 'LineStyle', '-', 'LineWidth', 2);
+%contour(robot_params.g2d.xs{1}, robot_params.g2d.xs{2}, robot_params.raw_sd_obs, [-0.1,0.1], ...
+%    'Color', [0.4,0.4,0.4], 'LineStyle', '-', 'LineWidth', 2);
+for oi=1:length(robot_params.obstacles)
+    obs_info = robot_params.obstacles{oi};
+    obs_min = obs_info(1:2);
+
+    x_min = obs_min(1);
+    y_min = obs_min(2);
+    rectangle('position', obs_info, ...
+                'curvature', [0.2,0.2], ...
+                'EdgeColor', 'k');
+end
+
+% Set limits.
 xlim([robot_params.gmin(1), robot_params.gmax(1)])
 ylim([robot_params.gmin(2), robot_params.gmax(2)])
 % Plot the lane boundaries.
@@ -56,7 +71,6 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup simulation horizon. 
-simT = 60;
 h_xcurr = h_x0;
 r_xcurr = r_start;
 
@@ -67,34 +81,38 @@ gray_c = [0.8,0.8,0.8];
 rph = [];
 g1_th = [];
 g2_th = [];
+hrecth = [];
+rrecth = [];
+
+% Predict human!
+fprintf('Predicting g1...\n');
+human_preds_g1 = ...
+        robot_params.predictor_g1.plan(h_xcurr, robot_params.g1, [], []);
+
+fprintf('Predicting g2...\n');
+human_preds_g2 = ...
+        robot_params.predictor_g2.plan(h_xcurr, robot_params.g2, [], []);   
+
+% Plan for the robot!
+fprintf('Planning...\n');
+robot_plan = ...
+    robot_params.planner.plan(r_xcurr, robot_params.goal, ...
+                                human_preds_g1, human_preds_g2);
+
+simT = length(robot_plan{1}); %60;
 
 for t=1:simT
-    % Predict human!
-    fprintf('Predicting g1...\n');
-    human_preds_g1 = ...
-            robot_params.predictor_g1.plan(h_xcurr, robot_params.g1, [], []);
-        
-    fprintf('Predicting g2...\n');
-    human_preds_g2 = ...
-            robot_params.predictor_g2.plan(h_xcurr, robot_params.g2, [], []);   
-        
-    % Plan for the robot!
-    fprintf('Planning...\n');
-    robot_plan = ...
-        robot_params.planner.plan(r_xcurr, robot_params.goal, ...
-                                    human_preds_g1, human_preds_g2);
-    
     % Update human state based on the true goal they are going to.
     if strcmp(true_human_goal, 'g1')
-        h_xnext = [human_preds_g1{1}(2), human_preds_g1{2}(2), human_preds_g1{5}(2), human_preds_g1{3}(2)];
+        h_xnext = [human_preds_g1{1}(t), human_preds_g1{2}(t), human_preds_g1{5}(t), human_preds_g1{3}(t)];
     elseif strcmp(true_human_goal, 'g2')
-        h_xnext = [human_preds_g2{1}(2), human_preds_g2{2}(2), human_preds_g2{5}(2), human_preds_g2{3}(2)];
+        h_xnext = [human_preds_g2{1}(t), human_preds_g2{2}(t), human_preds_g2{5}(t), human_preds_g2{3}(t)];
     else
         error('invalid true human goal!');
     end
     
     % Update robot state.
-    r_xnext = [robot_plan{1}(2), robot_plan{2}(2), robot_plan{5}(2), robot_plan{3}(2)];
+    r_xnext = [robot_plan{1}(t), robot_plan{2}(t), robot_plan{5}(t), robot_plan{3}(t)];
     
     %% Plot robot plan
     hsh.Color = gray_c;
@@ -107,6 +125,8 @@ for t=1:simT
     if ~isempty(g1_th) && ~isempty(g2_th)
         delete(g1_th);
         delete(g2_th);
+        delete(hrecth);
+        delete(rrecth);
         %g1_th.MarkerEdgeColor = gray_c;
         %g2_th.MarkerEdgeColor = gray_c;
     end
@@ -126,6 +146,17 @@ for t=1:simT
     rsh.Marker = 'o';
     rsh.MarkerFaceColor = 'k';
     
+    pos = [h_xcurr(1)-robot_params.car_rad, h_xcurr(2)-robot_params.car_rad, ...
+           robot_params.car_rad*2, robot_params.car_rad*2];
+    hrecth = rectangle('position', pos, ...
+                'curvature', [1,1], ...
+                'EdgeColor', 'r');
+    pos = [r_xcurr(1)-robot_params.car_rad, r_xcurr(2)-robot_params.car_rad, ...
+           robot_params.car_rad*2, robot_params.car_rad*2];
+    rrecth = rectangle('position', pos, ...
+                'curvature', [1,1], ...
+                'EdgeColor', 'k');
+    
     % Plot the belief.
 %     if strcmp(coll_check, 'conf')
 %         if ~isempty(tb1)
@@ -138,9 +169,11 @@ for t=1:simT
 %         tb2.Color = 'r';
 %     end
 
-    current_frame = getframe(gcf); %gca does just the plot
-    writeVideo(vout,current_frame);
-    %pause(0.1)
+    if save_video
+        current_frame = getframe(gcf); %gca does just the plot
+        writeVideo(vout,current_frame);
+    end
+    pause(0.1)
     
     %% Update belief over goals.
     %if strcmp(coll_check, 'conf')
@@ -151,5 +184,6 @@ for t=1:simT
     h_xcurr = h_xnext; 
     r_xcurr = r_xnext;
 end
-
-vout.close()
+if save_video
+    vout.close()
+end
