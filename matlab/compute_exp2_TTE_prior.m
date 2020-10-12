@@ -13,7 +13,7 @@ params = exp2_conf_reachability();
 %% Randomly Sample Initial Conditions!
 % Number of cells to divide x and y into.
 
-num_init_cells_prior = 8;
+num_init_cells_prior = 16;
 num_init_cells = num_init_cells_prior; 
 
 init_res_x = (params.gmax(1) - params.gmin(1))/num_init_cells;
@@ -66,10 +66,16 @@ scatter(params.theta(1), params.theta(2), 'r')
                          params.minWith, ...
                          params.extraArgs);
 
-%% Extract min TTE for each init cond           
-all_ttes_per_init_cond = containers.Map();
+%% Extract min TTE for each init cond       
 
+% Precompute once all the likely masks to save on compute time!
+mask_grid = Grid(params.g.min, params.g.max, params.g.N); % for converting from real to linear index
+all_states = mask_grid.get_grid();
+likelyMasks = params.dyn_sys.getLikelyMasks(all_states);
+
+all_ttes_per_init_cond = containers.Map();
 belief_low_conf_init = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8};
+
 for i = 1:length(human_init_conds)
     all_ttes = {};
     init_xy = human_init_conds{i};
@@ -79,13 +85,14 @@ for i = 1:length(human_init_conds)
         init_state = {init_xy(1), init_xy(2), binit};
 
         % Find and plot optimal control sequence (if reachable by computed BRS)
-        [traj, traj_tau, ctrls] = computeOptTraj(init_state, ....
-                                      params.g, ...
-                                      value_funs, ...
-                                      tauOut, ...
-                                      params.dyn_sys, ...
-                                      params.uMode, ...
-                                      params.extraArgsCtrl);
+        traj_tau = computeTTE(init_state, ....
+                              params.g, ...
+                              value_funs, ...
+                              tauOut, ...
+                              params.dyn_sys, ...
+                              params.uMode, ...
+                              mask_grid, ...
+                              likelyMasks);
 
         all_ttes{end+1} = (traj_tau(end)-1)*params.dt;        
         %all_trajs{end+1} = traj;
@@ -96,7 +103,10 @@ for i = 1:length(human_init_conds)
     all_ttes_per_init_cond(num2str(init_xy)) = all_ttes;
 end
 
-save('tte_as_fun_of_prior_large.mat', 'all_ttes_per_init_cond', 'belief_low_conf_init', 'human_init_conds');
+save('tte_as_fun_of_prior_large.mat', ...
+    'all_ttes_per_init_cond', ...
+    'belief_low_conf_init', ...
+    'human_init_conds');
 
 % % Plot all TTEs!
 % for i = 1:length(human_init_conds)
