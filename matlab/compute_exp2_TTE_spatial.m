@@ -26,8 +26,7 @@ grid on
 %% Randomly Sample Initial Conditions!
 % Number of cells to divide x and y into.
 
-num_init_cells_spatial = 14;
-
+num_init_cells_spatial = 45;
 num_init_cells = num_init_cells_spatial; %8;
 
 init_res_x = (params.gmax(1) - params.gmin(1))/num_init_cells;
@@ -85,28 +84,35 @@ binit = 0.5;
 all_ttes = {};
 all_trajs = {};
 
+% Precompute once all the likely masks to save on compute time!
+mask_grid = Grid(params.g.min, params.g.max, params.g.N); % for converting from real to linear index
+all_states = mask_grid.get_grid();
+likelyMasks = params.dyn_sys.getLikelyMasks(all_states);
+
 for i = 1:length(human_init_conds)
     init_xy = human_init_conds{i};
     init_state = {init_xy(1), init_xy(2), binit};
 
     % Find and plot optimal control sequence (if reachable by computed BRS)
     fprintf("Computing opt traj for xinit %d / %d ...\n", i, length(human_init_conds));
-    [traj, traj_tau, ctrls] = computeOptTraj(init_state, ....
-                                  params.g, ...
-                                  value_funs, ...
-                                  tauOut, ...
-                                  params.dyn_sys, ...
-                                  params.uMode, ...
-                                  params.extraArgsCtrl);
+    traj_tau = computeTTE(init_state, ....
+                          params.g, ...
+                          value_funs, ...
+                          tauOut, ...
+                          params.dyn_sys, ...
+                          params.uMode, ...
+                          mask_grid, ...
+                          likelyMasks);
 
     all_ttes{end+1} = (traj_tau(end)-1)*params.dt;        
-    all_trajs{end+1} = traj;
+    all_trajs{end+1} = cell2mat(init_state);
     fprintf('===> TTE: %f\n', (traj_tau(end)-1)*params.dt);   
     %text(init_xy(1), init_xy(2), num2str((traj_tau(end)-1)*params.dt));
     %plot(traj(1,:), traj(2,:), 'b-o')
 end
 
-save('tte_spatial.mat', 'all_ttes', 'all_trajs', 'relevant_cell_bounds');
+save('tte_spatial_fine.mat', 'all_ttes', 'all_trajs', 'relevant_cell_bounds');
+%save('tte_spatial.mat', 'all_ttes', 'all_trajs', 'relevant_cell_bounds');
 
 % % Plot all TTEs!
 % for i = 1:length(human_init_conds)

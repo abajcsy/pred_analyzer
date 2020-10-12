@@ -5,7 +5,10 @@ close all
 %% load data.
 %load('cell_bounds.mat');
 %load('overnight_rand.mat');
-load('overnight_uniform.mat');
+
+%load('overnight_uniform.mat');
+
+load('tte_spatial_fine.mat');
 
 %% Load params. 
 params = exp2_conf_reachability();
@@ -51,11 +54,19 @@ box on
 grid off
 
 %% TODO: add in a cute colorbar. 
-r = linspace(min_color(1), max_color(1), 4);
-g = linspace(min_color(2), max_color(2), 4);
-b = linspace(min_color(3), max_color(3), 4);
-ax = axes;
+unique_ttes = unique(cell2mat(all_ttes));
+r = linspace(min_color(1), max_color(1), 30);
+g = linspace(min_color(2), max_color(2), 30);
+b = linspace(min_color(3), max_color(3), 30);
+ax = axes('Position',[0,0,700,700],'Box','off');
+ph = plot(linspace(0,1,length(unique_ttes)), unique_ttes);
 colormap(ax, [r', g', b'])
-colorbar
+cbh = colorbar;
 %lcolorbar([min_tte, 1.36, 1.8182, max_tte], 'YLabelString', 'minTTE')
+set(ph,'Visible','off');
 ax.Visible = 'off';
+ax.Position = [0.19 0.111 0.6918 0.815];
+cbh.Ticks = linspace(0,1,length(unique_ttes));
+cbh.TickLabels = unique_ttes;
+cbh.FontSize = 13;
+cbh.FontName = 'Times New Roman';
