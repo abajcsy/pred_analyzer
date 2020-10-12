@@ -9,8 +9,8 @@ params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.thetas = {[1.5,-5.5], [-3.5, -3]}; %{[-5.5, 0], [-3, 4]};
-params.trueThetaIdx = 1;
+params.thetas = {[-5.5, -1], [1.8, -5.5]}; %{[-5.5, 0], [-3, 4]};
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
 % tol = 1-0.85;
@@ -44,6 +44,10 @@ params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
 
+%% Save traj?
+params.save = true;        % Save the BRS and the optimal trajectory?
+params.exp_type = "exp_1";
+
 %% Pack Reward Info
 
 % 2D Grid for computing Q-function.
@@ -55,7 +59,7 @@ params.reward_info.g = g_phys;
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/data/');
-map_name = 'map.png'; 
+map_name = 'cluttered_map_doorway.png';
 obs_data = imread(strcat(data_path, map_name));
 n_phys = numel(params.gmin) - numel(params.bdims);
 params.reward_info.obstacles = get_obs_map(obs_data, ...
@@ -71,7 +75,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0,0,0.5}; %{1.5,1.5,0.5};
+params.initial_state = {2.276,-2.69,0.5};% {4.345,-2.276,0.5}; %{1.5,1.5,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 

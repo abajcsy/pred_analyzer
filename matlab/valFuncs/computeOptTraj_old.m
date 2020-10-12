@@ -1,4 +1,4 @@
-function [traj, traj_tau, ctrls] = computeOptTraj(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
+function [traj, traj_tau, ctrls] = computeOptTraj_old(z0, g, value_funs, tau, dynSys, uMode, extraArgs)
 % [traj, traj_tau] = computeOptTraj(g, data, tau, dynSys, extraArgs)
 %   Computes the optimal trajectories given the optimal value function
 %   represented by (g, data), associated time stamps tau, dynamics given in

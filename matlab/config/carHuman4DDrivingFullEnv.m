@@ -51,7 +51,7 @@ params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "max"; % min or max
-params.uThresh = 0.2; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.12; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -103,9 +103,9 @@ gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
 params.vel = 6; %8;
-params.v_range = [-1*params.vel, 1*params.vel]; % Car's driving speed (m/s)
+params.v_range = [params.vel/2, 1*params.vel]; % Car's driving speed (m/s)
 params.angular_range = [-2*pi,0,2*pi]; % (angular v in rad/s) w = (ang/obj.gnums(3))/obj.dt; - this list contains ang 
-params.dt = gdisc4D(1)/params.vel; %0.16;%gdisc4D(1)/params.vel;
+params.dt = 0.163; %0.16;%gdisc4D(1)/params.vel;
 
 % range of belief values
 b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));

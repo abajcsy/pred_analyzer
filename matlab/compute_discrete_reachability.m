@@ -9,13 +9,13 @@ close all
 % === Setups where joint state includes belief. === %
 % params = mdpHuman3DSimpleEnv();
 % params = mdpHuman3DDrivingEnv();
-params = carHuman4DDrivingEnv();
+% params = carHuman4DDrivingEnv();
 % params = carHuman4DDrivingFullEnv();
 
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
 
-% params = exp1_legibility();
+params = exp1_legibility();
 % params = exp2_confidence();
 
 % === Setups where joint state includes direct parameter vals. === %
@@ -26,8 +26,8 @@ params = carHuman4DDrivingEnv();
 % params.dyn_sys.plot_opt_policy(2);
 
 %% Plot optimal control policy starting from initial condition.
-params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
-params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
+% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
+% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
 
 %% Solve for the discrete-time value function!
 [value_funs, tauOut, extraOuts] = ...
@@ -47,7 +47,10 @@ fprintf("Computing opt traj...\n");
                                   params.uMode, ...
                                   params.extraArgsCtrl);
 
-%valid = check_traj(traj, params.reward_info.obstacles);
+if isfield(params, "save") && params.save
+    save("data/"+params.exp_type+"_"+params.uMode+"_uthresh_"+num2str(params.uThresh)+"_theta_"+num2str(params.trueThetaIdx)+".mat", ...
+        "traj", "traj_tau", "ctrls", "params", "value_funs");
+end
 
 % ====================================== %
 hold on

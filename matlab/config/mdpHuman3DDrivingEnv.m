@@ -5,7 +5,7 @@ params.gmin = [-4, -4, 0];
 params.gmax = [4, 4, 1];
 params.gnums = [20, 20, 20];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
-params.bdims = 3; % dimension(s) which contain the belief
+params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[-3.6, 1], [1, 3.6]};
@@ -28,23 +28,23 @@ else
 end
 
 xyoffset = 0.1;
-% center = [0; 0; centerPgoal1];
-% widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
-%           (params.gmax(2) - params.gmin(2)) + xyoffset; 
-%           tol];
-% params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
+center = [0; 0; centerPgoal1];
+widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
+          (params.gmax(2) - params.gmin(2)) + xyoffset; 
+          tol];
+params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 % Cylinder centered at true goal
-params.initial_value_fun = shapeCylinder(params.g,3, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
+% params.initial_value_fun = shapeCylinder(params.g,3, [params.thetas{params.trueThetaIdx}, 0.5], 0.3);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 15;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "min"; % min or max
-params.uThresh = 0.0; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "max"; % min or max
+params.uThresh = 0.20; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -92,6 +92,10 @@ gdisc3D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 params.vel = 0.6;
 params.dt = gdisc3D(1)/params.vel;
 
+% range of belief values
+b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));
+params.b_range = [b_space(2) b_space(numel(b_space)-1)];
+
 % MDP human.
 params.dyn_sys = MDPHumanBelief3D(params.initial_state, ...
                                     params.reward_info, ...
@@ -100,7 +104,8 @@ params.dyn_sys = MDPHumanBelief3D(params.initial_state, ...
                                     gdisc3D, ...
                                     params.gamma, ...
                                     params.eps, ...
-                                    params.beta);
+                                    params.beta, ...
+                                    params.b_range);
 
 %% Pack problem parameters
 params.schemeData.grid = params.g;
@@ -111,7 +116,7 @@ params.schemeData.uMode = params.uMode;
 % NOTE: 
 % OBSTACLES IN REACHABILITY HAVEN'T BEEN 
 % ADDED BASED ON THE NEW OBS LIST!
-params.obstaclesInReachability = true;
+params.obstaclesInReachability = false;
 
 % High confidence obstacle
 obs_center = [

@@ -62,18 +62,20 @@ classdef Grid < handle
             
             idx = cell(size(coords{1}));
 %             parfor ind=1:numel(idx)
-            for ind=1:numel(idx)
+            parfor ind=1:numel(idx)
                 sub = [];
                 for dim=1:dims
                     sub = [sub index{dim}(ind)];
                 end
                 sub = num2cell(sub);
-                try
-                    new_ind = sub2ind(size(obj.data), sub{:});
-                    idx{ind} = new_ind;
-                catch
-                    idx{ind} = nan;
-                end
+                new_ind = sub2ind(size(obj.data), sub{:});
+                idx{ind} = new_ind;
+%                 try
+%                     new_ind = sub2ind(size(obj.data), sub{:});
+%                     idx{ind} = new_ind;
+%                 catch
+%                     idx{ind} = nan;
+%                 end
             end
         end
         
@@ -83,7 +85,7 @@ classdef Grid < handle
             data = zeros(size(real{1}));
             parfor data_ind=1:numel(real{1})
                 corr_ind = idx{data_ind};
-                if isnan(corr_ind)
+                if isnan(corr_ind) && false
                     data(data_ind) = nan;
                 else
                     data(data_ind) = obj.data(corr_ind);

@@ -277,6 +277,170 @@ classdef MDPHumanBelief3D < handle
                 q_fun(num2str(u_i)) = q;
             end
         end
+        %% Computes the Q-function for theta denoted by true_theta_idx 
+        %   via value iteration. 
+%         function [v_grid, q_fun] = compute_q_fun(obj, true_theta_idx, gamma, eps)
+%             % Compute reward function
+%             % reward_info: gmin,gmax,gnums,g,obs_min,obs_max,obs_val
+%             r_fun = containers.Map;
+%             state_grid = obj.reward_info.g.xs;
+%             g_min = obj.reward_info.g.min';
+%             g_max = obj.reward_info.g.max';
+%             g_nums = obj.reward_info.g.N';
+%             
+%             % Create one mask which shows all states where obstacles are. 
+%             penalty_in_obs_mask = 0 .* state_grid{1};
+%             if obj.has_obs
+%                 penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+%                 penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+%                                     (penalty_obstacle_mask==1) .* -obj.nearInf;
+%             else
+%                 % if no obstacles, then no penalty for obstacle anywhere. 
+%                 penalty_obstacle = zeros(size(state_grid{1}));
+%             end
+%             
+%             for i=1:obj.num_ctrls
+%                 u_i = obj.controls{i};
+%                 next_state = obj.physical_dynamics(state_grid, u_i);
+%                 
+%                 % -inf if moving outside grid
+%                 penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+%                                        (next_state{2} < g_min(2)) | ...
+%                                        (next_state{1} > g_max(1)) | ...
+%                                        (next_state{2} > g_max(2));
+%                 penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+%                                   (penalty_outside_mask==1) .* -obj.nearInf; 
+%                 
+%                 if obj.has_obs
+%                     penalty_obstacle_mask = 0 .* state_grid{1};
+%                     for oi = 1:length(obj.reward_info.obstacles)
+%                         obs_info = obj.reward_info.obstacles{oi};
+%                         obs_min = obs_info(1:2);
+%                         obs_max = obs_info(1:2) + obs_info(3:4);
+% 
+%                         % -inf if moving into obstacle or inside of an obstacle rn.
+%                         penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+%                                 (next_state{2} >= obs_min(2)) & ...
+%                                 (next_state{1} <= obs_max(1)) & ...
+%                                 (next_state{2} <= obs_max(2)); 
+%                         penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+%                     end
+%                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+%                                         (penalty_obstacle_mask==1) .* -obj.nearInf;
+%                 else
+%                     % if no obstacles, then no penalty for obstacle anywhere. 
+%                     penalty_obstacle = zeros(size(state_grid{1}));
+%                 end
+%                 
+%                 % action costs
+%                 if u_i(1) == 0 && u_i(2) == 0
+%                     % Stop
+%                     grid = Grid(g_min, g_max, g_nums);
+%                     grid.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+%                     grid.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+%                     action_cost = grid.data;
+%                 elseif u_i(1) ~= 0 && u_i(2) ~= 0
+%                     action_cost = ones(size(next_state{1})) .* -sqrt(2);
+%                 else
+%                     action_cost = ones(size(next_state{1})) .* -1;
+%                 end
+%                 
+%                 r_i = action_cost + penalty_obstacle + penalty_outside;
+%                 r_fun(num2str(u_i)) = r_i;
+%             end
+%             
+%             % Compute value function
+%             v_fun_prev = zeros(g_nums); 
+%             v_grid = Grid(g_min, g_max, g_nums);
+%             while true
+%                 v_grid.SetData(v_fun_prev);
+%                 possible_vals = zeros([g_nums, numel(obj.controls)]);
+%                 for i=1:numel(obj.controls)
+%                     u_i = obj.controls{i};
+%                     next_state = obj.physical_dynamics(state_grid, u_i);
+%                     v_next = v_grid.GetDataAtReal(next_state);
+%                     possible_vals(:,:,i) = r_fun(num2str(u_i)) + (gamma .* v_next);
+%                 end
+%                 v_fun = max(possible_vals, [], 3);
+%                 
+%                 % \ell_\infty stopping condition
+%                 v_delta = v_fun - v_fun_prev;
+%                 max_dev = max(abs(v_delta),[],'all');
+%                 fprintf('    max diff in values: %f, eps: %f\n', max_dev, eps);
+%                 if max_dev < eps
+%                     break
+%                 else
+%                     v_fun_prev = v_fun;
+%                 end
+%             end
+%             v_grid.SetData(v_fun);
+%             
+%             % Compute Q-function
+%             q_fun = containers.Map;
+%             sum_exp = 0;
+%             for i=1:obj.num_ctrls
+%                 u_i = obj.controls{i};
+%                 next_state = obj.physical_dynamics(state_grid, u_i);
+%                 v_next = v_grid.GetDataAtReal(next_state);
+%                 q_data = r_fun(num2str(u_i)) + (gamma .* v_next);
+%                 q_i = Grid(g_min, g_max, g_nums);
+%                 q_i.SetData(q_data);
+%                 q_fun(num2str(u_i)) = q_i;
+%                 sum_exp = sum_exp + exp(q_i.data);
+%             end
+%             
+%             % ZERO ISSUE FIX
+%             % Make invalid states have Q-value of zero for all actions except
+%             % those that 1) are at the goal 2) moving into obstacle
+%             % 3) moving out of grid. 
+%             % States are invalid if \sum e^Q(x,u') == 0 (i.e no states give 
+%             % a non-zero action)
+%             isInvalid = (sum_exp == 0);
+%             for i=1:obj.num_ctrls
+%                 u_i = obj.controls{i};
+%                 next_state = obj.physical_dynamics(state_grid, u_i);
+%                 q_i = q_fun(num2str(u_i)).data;
+%                 q_i(isInvalid) = 0;
+%                 q = Grid(g_min, g_max, g_nums);
+%                 
+%                 if u_i(1)==0 && u_i(1)==0 % Ensure stop action is only equally likely if at goal.
+%                     q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+%                     q.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+%                 end
+%                 
+%                 % -inf if moving outside grid or into obstacle
+%                 penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+%                                        (next_state{2} < g_min(2)) | ...
+%                                        (next_state{1} > g_max(1)) | ...
+%                                        (next_state{2} > g_max(2));
+%                 penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+%                                   (penalty_outside_mask==1) .* -obj.nearInf; 
+%                               
+%                 if obj.has_obs
+%                     penalty_obstacle_mask = 0 .* state_grid{1};
+%                     for oi = 1:length(obj.reward_info.obstacles)
+%                         obs_info = obj.reward_info.obstacles{oi};
+%                         obs_min = obs_info(1:2);
+%                         obs_max = obs_info(1:2) + obs_info(3:4);
+% 
+%                         % -inf if moving into obstacle or inside of an obstacle rn.
+%                         penalty_next_obs_mask = (next_state{1} >= obs_min(1)) & ...
+%                                 (next_state{2} >= obs_min(2)) & ...
+%                                 (next_state{1} <= obs_max(1)) & ...
+%                                 (next_state{2} <= obs_max(2)); 
+%                         penalty_obstacle_mask = penalty_next_obs_mask | penalty_in_obs_mask;  
+%                     end
+%                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+%                                         (penalty_obstacle_mask==1) .* -obj.nearInf;
+%                     else
+%                     % if no obstacles, then no penalty for obstacle anywhere. 
+%                     penalty_obstacle = zeros(size(state_grid{1}));
+%                 end
+%                 
+%                 q.SetData(q_i + penalty_obstacle + penalty_outside); 
+%                 q_fun(num2str(u_i)) = q;
+%             end
+%         end
         
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
