@@ -26,11 +26,11 @@ end
 upper = tau(end);
 lower = 1;
 
-% Determine the earliest time that the current state is in the reachable set
-tEarliest = findEarliestBRSInd(grid, value_funs, z0, upper, lower);
-
 % Grid initial condition
 z0 = grid.RealToCoords(z0);
+
+% Determine the earliest time that the current state is in the reachable set
+tEarliest = findEarliestBRSInd(grid, value_funs, z0, upper, lower);
 
 % Time parameters
 tauLength = length(tau)-tEarliest+1;

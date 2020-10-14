@@ -49,6 +49,7 @@ classdef MDPHumanBelief3D < handle
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
             obj.nearInf = 1000000000.0;
+            obj.thetas = reward_info.thetas;
             obj.v_funs = cell(1,numel(reward_info.thetas));
             obj.q_funs = cell(1,numel(reward_info.thetas));
             obj.reward_info = reward_info;
@@ -107,16 +108,16 @@ classdef MDPHumanBelief3D < handle
         %  is sufficiently likely at this state. 
         function likelyMasks = getLikelyMasks(obj, z)
             likelyMasks = containers.Map;
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
+            for ui=1:obj.num_ctrls
+                u = obj.controls{ui};
 
                 % We want to choose controls such that:
                 %   U = {u : P(u | x, theta = trueTheta) > delta}
-                putheta = obj.pugivenxtheta(u_i, z, obj.q_funs{obj.trueThetaIdx});
+                putheta = obj.pugivenxtheta(u, z, obj.q_funs{obj.trueThetaIdx});
                 mask = (putheta > obj.uThresh);
                 mask = mask * 1.0;
-                mask(mask==0) = nan;
-                likelyMasks(num2str(u_i)) = mask;
+                mask(mask==0) = nan; % set all unlikely controls = NaN so min/maxing isn't affected. 
+                likelyMasks(num2str(u)) = mask;
             end
         end
         
@@ -524,6 +525,48 @@ classdef MDPHumanBelief3D < handle
             ylim([-4,4]);
         end
         
+        %% Returns the optimal trajectory from current state to goal. 
+        function [opt_traj, opt_ctrl_idxs] = get_opt_policy_from_x0(obj, xinit, theta_idx)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                all_q_vals(:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
+            
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            xcurr = xinit;
+            opt_traj = [[xcurr{1};xcurr{2}]];
+            opt_ctrl_idxs = [];
+            
+            % Loop until the curr state is close enough to goal. 
+            goal_rad = obj.gdisc(1);
+            goal = obj.reward_info.thetas{theta_idx};
+            d_to_goal = sqrt((xcurr{1} - goal{1})^2 + (xcurr{2} - goal{2})^2);
+            while d_to_goal > goal_rad
+                % get optimal control at this state
+                uopt_idx = uopts.GetDataAtReal(xcurr);
+                xcurr = obj.physical_dynamics(xcurr, obj.controls{uopt_idx});
+                opt_ctrl_idxs(end+1) = uopt_idx;
+                opt_traj(:,end+1) = [xcurr{1};xcurr{2}];
+                d_to_goal = sqrt((xcurr{1} - goal{1})^2 + (xcurr{2} - goal{2})^2);
+            end 
+        end
+        
+        %% Get earliest time where optimal policy reaches target confidence.
+        function [tte, idx] = get_opt_policy_earliest_tte_conf(obj, opt_traj, prior)
+            tte = Inf;
+            belief = prior;
+            for i=1: opt_traj
+                obj.belief_update(u,z);
+            end
+        end
+        
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy_from_x0(obj, xinit, theta_idx)
             q_fun = obj.q_funs{theta_idx};
@@ -602,18 +645,13 @@ classdef MDPHumanBelief3D < handle
             
             % plot obstacle.
             if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                        
-                    x_min = obs_min(1);
-                    y_min = obs_min(2);
-                    p_min = 1;
-                    l = [obs_info(3), ...
-                        obs_info(4), ...
-                        9];
-                    plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
-                end
+                % plot obstacle.
+                bandw_cmap = [1,1,1;0,0,0];
+                colormap(bandw_cmap)
+                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
+                            obj.reward_info.obstacles.g{2}, ...
+                            obj.reward_info.obstacles.data);
+                set(ph, 'EdgeColor', 'none');
             end
             set(gcf,'color','w');
             xlim([obj.reward_info.g.min(1), obj.reward_info.g.max(1)]);
