@@ -83,6 +83,7 @@ classdef MDPHumanBelief3D < handle
             znext{1} = z{1} + u(1);
             znext{2} = z{2} + u(2);
             znext{3} = obj.belief_update(u,z);
+            
         end
         
         %% Dyanmics of physical states.
@@ -559,11 +560,26 @@ classdef MDPHumanBelief3D < handle
         end
         
         %% Get earliest time where optimal policy reaches target confidence.
-        function [tte, idx] = get_opt_policy_earliest_tte_conf(obj, opt_traj, prior)
-            tte = Inf;
+        function [tte_idx, bfinal] = get_opt_policy_earliest_tte_conf(obj, ...
+                opt_traj, opt_ctrl_idxs, prior, trueThetaIdx)
+            tte_idx = -1;
             belief = prior;
-            for i=1: opt_traj
-                obj.belief_update(u,z);
+            num_states = length(opt_traj);
+            target_belief = 0.9;
+            if trueThetaIdx == 2
+                target_belief = 0.1; 
+            end
+            for i=1:num_states
+                z = {opt_traj(1,i), opt_traj(2,i), belief};
+                uidx = opt_ctrl_idxs(i);
+                u = obj.controls{uidx};
+                belief = obj.belief_update(u,z);
+                if (trueThetaIdx == 1 && belief >= target_belief) || ...
+                    (trueThetaIdx == 2 && belief <= target_belief)
+                    tte_idx = i+1;
+                    bfinal = belief;
+                    break;
+                end
             end
         end
         

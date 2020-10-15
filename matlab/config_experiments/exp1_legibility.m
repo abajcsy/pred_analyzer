@@ -3,22 +3,21 @@ function params = exp1_legibility()
 %% Grid setup
 params.gmin = [-6, -6, 0];
 params.gmax = [6, 6, 1];
-params.gnums = [30, 30, 25]; %[30, 30, 25];
+params.gnums = [40, 40, 40]; %[30, 30, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.thetas = {[1.5, -5.5], [-3, -3]}; %{[-5.5, -1], [1.8, -5.5]}; 
+params.thetas = {[1.5, -5.5], [-3.517, -3.1]}; %{[-5.5, -1], [1.8, -5.5]}; 
 params.trueThetaIdx = 1;
 %params.trueThetaIdx = 2;
 
 %% Target Set Setup
 % tol = 1-0.85;
 % centerPgoal1 = (1-0.85)/2 + 0.85;
-xyoffset = 0.1;
-poffset = 0.1;
-tol = 0.1;
+xyoffset = -0.05; 
+tol = 0.09;
 if params.trueThetaIdx == 1
     center = [0; 0; 0.95];
     widths = [(params.gmax(1) - params.gmin(1)) + xyoffset;
@@ -35,20 +34,21 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "min"; %"max"; % min or max
 %params.uThresh = 0.2; %0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
-params.uThresh = 0.0;
+%params.uThresh = 0.0;
 %params.uThresh = 0.05;
-%params.uThresh = 0.15;
+%params.uThresh = 0.1;
+params.uThresh = 0.15; % best threshold for max
 %params.uThresh = 0.2;
 
 %% Plotting?
-params.plot = true;        % Visualize the BRS and the optimal trajectory?
+params.plot = false;        % Visualize the BRS and the optimal trajectory?
 
 %% Save traj?
 params.save = true;        % Save the BRS and the optimal trajectory?
@@ -94,7 +94,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0.2069, 0.2069, 0.5};
+params.initial_state = {0.6207, 0.2069, 0.5}; %{0.6207, 0.05, 0.5};
 %{1.034, -0.6207, 0.5}; %{2.276,-2.69,0.5};% {4.345,-2.276,0.5}; %{1.5,1.5,0.5};
 
 % Params for Value Iteration. 
