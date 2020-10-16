@@ -16,10 +16,12 @@ classdef ConfAwarePredictor
         
         transition_mat  % (matrix) nx * nx * nu dynamics matrix
         pu_mat          % (matrix) nu * nx * nb action probability matrix
+        q_fun 
+        q_fun_grid
     end
     
     methods
-        function obj = ConfAwarePredictor(grid, goal, betas)
+        function obj = ConfAwarePredictor(grid, goal, betas, reward_info, gamma, eps)
             %CONFAWAREPREDICTOR Construct an instance of this class
             %   Detailed explanation goes here
             obj.betas = betas;
@@ -33,7 +35,22 @@ classdef ConfAwarePredictor
             obj.nx = obj.grid.N(1)*obj.grid.N(2);
             obj.grid = grid;
             
+            % THIS IS SUCH A BIG HACK TO SAVE ME IMPLEMENTATION TIME.
+            b_range = [0.01, 0.99];
+            z0 = {1.069, 0, 0.7762}; % doesn't really matter for our purposes.
+            joint_dyn_sys = MDPHumanConfidence3D(z0, ...
+                                                reward_info, ...
+                                                1, ...
+                                                0.0, ...
+                                                gdisc, ...
+                                                gamma, eps, ...
+                                                betas, b_range);
+            obj.q_fun = joint_dyn_sys.q_fun;
+            obj.q_fun_grid = reward_info.g;
+            
+            fprintf('Setting up transition matrix...\n');
             obj.transition_mat = obj.gen_transition_mat();
+            fprintf('Setting up action probability matrix...\n');
             obj.pu_mat = obj.gen_pu_mat();
         end
         
@@ -54,6 +71,7 @@ classdef ConfAwarePredictor
                     for snext = 1:obj.nx
                         dyn = squeeze(obj.transition_mat(snext, :, :));
                         pub = squeeze(obj.pu_mat(:,:,bi));
+                        pub(find(isnan(pub))) = 0; %TMP?
                         sum_dyn_and_pu = sum(dyn .* pub', 2);
                         xprev_dyn_and_pu = sum_dyn_and_pu .* pxprev;
                         pxcurr(snext) = sum(xprev_dyn_and_pu, 1);
@@ -140,7 +158,14 @@ classdef ConfAwarePredictor
             y = obj.grid.xs{2}(si);
             beta = obj.betas(bi);
             [~, xnext, ynext, isvalid] = obj.dynamics(si, ui);
-            qval = -1 * sqrt((xnext - obj.goal(1))^2 + (ynext - obj.goal(2))^2);
+            ureal = obj.controls{ui};
+            %qval = -1 * sqrt((xnext - obj.goal(1))^2 + (ynext - obj.goal(2))^2);
+            
+            % get q-value from our table. 
+            qfun = obj.q_fun(num2str(ureal));
+            qval = qfun.GetDataAtReal({xnext,ynext});
+            %qval = eval_u(obj.q_fun_grid, qfun, [xnext, ynext]);
+            
             numer = exp(beta * qval);
             
             % if action is invalid from this state, return 0 prob
@@ -165,7 +190,10 @@ classdef ConfAwarePredictor
                 if si ~= obj.goal_idx && uj == 1
                     continue;
                 end
-                qval = -1 * sqrt((xnext - obj.goal(1))^2 + (ynext - obj.goal(2))^2);
+                ureal = obj.controls{uj};
+                qfun = obj.q_fun(num2str(ureal));
+                qval = qfun.GetDataAtReal({xnext,ynext});
+                %qval = -1 * sqrt((xnext - obj.goal(1))^2 + (ynext - obj.goal(2))^2);
                 denom = denom + exp(beta * qval);
             end
             

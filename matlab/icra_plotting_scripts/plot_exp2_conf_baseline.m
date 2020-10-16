@@ -1,30 +1,25 @@
 clear all
 close all
 
-%% Load up all the info for robot.
-robot_params = exp2_planner_baselines();
+%load('conf_baseline.mat');
+load('conf_baseline_fine.mat');
 
-%% Load up all the info for the human.
-% Setup what kind of collision checking we will do
-coll_check = 'conf'; 
-%coll_check = 'opt'; 
-%coll_check = 'frs'; 
-
-if strcmp(coll_check, 'conf')
-    human_params = exp2_conf_pred();
-elseif strcmp(coll_check, 'opt')
-    human_params = exp2_opt_pred();
-elseif strcmp(coll_check, 'frs')
-    human_params = exp2_frs_pred();
-else
-    error('other predictors not implemented here yet!')
+lin_idx = human_params.predictor.real_to_lin(h_start);
+pus = [];
+for ui=1:length(human_params.predictor.controls)
+    pu = human_params.predictor.pu_mat(ui, lin_idx, 2);
+    pus = [pus, pu];
+    fprintf('p(u=%d|x)=%f\n', ui,pu);
 end
+sum(pus)
+
+h_start = [1.4, 1.7];
 
 %% Video creation!
 save_video = false;
 if save_video 
     curr_date = datestr(now,'mm_dd_yyyy_HH_MM');
-    filename = strcat('exp2_',coll_check,'_baseline_',curr_date,'.mp4');
+    filename = strcat('exp2_conf_baseline_',curr_date,'.mp4');
     vout = VideoWriter(filename,'MPEG-4');
     vout.Quality = 100;
     vout.FrameRate = 5;
@@ -53,11 +48,9 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup robot start state. 
-r_start = [2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
 rsh = scatter(r_start(1), r_start(2), 'k', 'filled');
 
 %% Setup human start state. 
-h_start = [2.6, 1];
 % plot human state
 hsh = scatter(h_start(1), h_start(2), 'r', 'filled');
 
@@ -66,10 +59,10 @@ simT = 10;
 h_xcurr = h_start;
 r_xcurr = r_start;
 
-if strcmp(coll_check, 'conf')
-    pbeta = human_params.beta_prior; 
-end
+%% Setup prior over betas.
+pbeta = human_params.beta_prior; 
 
+%% Setup handles. 
 gray_c = [0.8,0.8,0.8];
 
 rph = [];
@@ -80,26 +73,17 @@ all_contour_h = [];
 for t=1:simT
     % Predict human!
     fprintf('Predicting...\n');
-    if strcmp(coll_check, 'conf')
-        human_preds = ...
-            human_params.predictor.predict(h_xcurr, human_params.T, pbeta);
-    elseif strcmp(coll_check, 'opt') || strcmp(coll_check, 'frs')
-        human_preds = ...
-            human_params.predictor.predict(h_xcurr, human_params.T);
-    end
+    human_preds = ...
+        human_params.predictor.predict(h_xcurr, human_params.T, pbeta);
     
     % Plan for the robot!
     fprintf('Planning...\n');
     robot_plan = ...
         robot_params.planner.plan(r_xcurr, robot_params.goal, ...
-            human_preds, human_params.real_times, human_params.pred_g, coll_check);
+            human_preds, human_params.real_times, human_params.pred_g, 'conf');
     
     % Update human state.
-    if t > 2
-        h_ctrl = 0;
-    else
-        h_ctrl = 0; %pi;
-    end
+    h_ctrl = pi/4;
     h_xnext = [h_xcurr(1) + human_params.dt * cos(h_ctrl), ...
                h_xcurr(2) + human_params.dt * sin(h_ctrl)];
     
@@ -113,20 +97,21 @@ for t=1:simT
             delete(all_contour_h(i))
         end
     end
-    for i=1:length(human_preds)
+    for i=length(human_preds):-1:1
         levels = [-0.1,0.1];
         preds = human_preds{i};
-        if strcmp(coll_check, 'conf')
-            eps = robot_params.planner.compute_likely_states(human_preds{i}, robot_params.pthresh);
-            levels = [-0.1,eps];
-            if eps == 0.0
-                preds = (human_preds{i} > eps) .* 1.0 + (human_preds{i} <= eps) .* 0.0;
-                levels = [1,1];
-            end
+        threshold = robot_params.pthresh;
+        eps = 0.01; %robot_params.planner.compute_likely_states(human_preds{i}, threshold);
+        locs = find(human_preds{i} > eps);
+        Xs = human_params.pred_g.xs{1}(locs); 
+        Ys = human_params.pred_g.xs{2}(locs); 
+        if eps == 0.0
+            preds = (human_preds{i} > eps) .* 1.0 + (human_preds{i} <= eps) .* 0.0;
+            locs = find(human_preds{i} > eps);
+            Xs = human_params.pred_g.xs{1}(locs); 
+            Ys = human_params.pred_g.xs{2}(locs); 
         end
-        
-        [~,h] = contour(human_params.pred_g.xs{1}, human_params.pred_g.xs{2}, preds, ...
-            levels, 'Color', [1,r_color(i),r_color(i)]);
+        h = scatter(Xs(:), Ys(:), 'r', 'markeredgecolor', [1,r_color(i),r_color(i)]);
         all_contour_h = [all_contour_h, h];
     end
     
@@ -139,18 +124,19 @@ for t=1:simT
     rph = scatter(robot_plan{1}, robot_plan{2}, 'k');
     hsh = scatter(h_xcurr(1), h_xcurr(2), 'r', 'filled');
     rsh = scatter(r_xcurr(1), r_xcurr(2), 'k', 'filled');
+   
+    ntsteps = floor(human_params.dt/robot_params.dt);
+    tatreplan = scatter(robot_plan{1}(ntsteps), robot_plan{2}(ntsteps), 'r', 'filled');
     
     % Plot the belief.
-    if strcmp(coll_check, 'conf')
-        if ~isempty(tb1)
-            delete(tb1)
-            delete(tb2)
-        end
-        tb1 = text(-4.7,-1,strcat('b_{', num2str(t-1),'}(low conf) = ', num2str(pbeta(1))));
-        tb1.Color = 'r';
-        tb2 = text(-4.7,-1.5,strcat('b_{', num2str(t-1),'}(high conf) = ', num2str(pbeta(2))));
-        tb2.Color = 'r';
+    if ~isempty(tb1)
+        delete(tb1)
+        delete(tb2)
     end
+    tb1 = text(-4.7,-1,strcat('b_{', num2str(t-1),'}(low conf) = ', num2str(pbeta(1))));
+    tb1.Color = 'r';
+    tb2 = text(-4.7,-1.5,strcat('b_{', num2str(t-1),'}(high conf) = ', num2str(pbeta(2))));
+    tb2.Color = 'r';
     
     if save_video
         current_frame = getframe(gcf); %gca does just the plot
@@ -159,13 +145,11 @@ for t=1:simT
     pause(0.1)
     
     %% Update belief over betas.
-    if strcmp(coll_check, 'conf')
-        pbeta = human_params.predictor.belief_update(h_xnext, h_xcurr, pbeta);
-    end
-    
+    pbeta = human_params.predictor.belief_update(h_xnext, h_xcurr, pbeta);
+ 
     %% Finally update states.
     h_xcurr = h_xnext; 
-    r_xcurr = r_xnext;
+    r_xcurr = r_xnext;    
 end
 
 if save_video

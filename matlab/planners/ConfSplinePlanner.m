@@ -211,6 +211,10 @@ classdef ConfSplinePlanner < handle
             obs_r = eval_u(obj.g2d, obj.sd_obs, traj);
             goal_r = eval_u(obj.g2d, obj.sd_goal, traj);
             
+            if any(obs_r) % if any obs_r is non-zero, 
+                obs_r = ones(size(obs_r))*-10000.0;
+            end
+            
             % for each time, compute if the robot state is in the human
             % state.
             
@@ -257,7 +261,8 @@ classdef ConfSplinePlanner < handle
                 final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
                 
                 if strcmp(coll_check, 'conf')
-                    opt_eps = obj.compute_likely_states(final_pred, obj.pthresh);
+                    %% NOTE THIS IS A HACCCKKKK
+                    opt_eps = 0.01; %obj.compute_likely_states(final_pred, obj.pthresh);
                 else
                     opt_eps = 0.0;
                 end

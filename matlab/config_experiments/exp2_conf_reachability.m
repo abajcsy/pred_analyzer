@@ -16,9 +16,11 @@ params.trueBetaIdx = 1;
 %% Target Set Setup
 % tol = 1-0.85;
 % centerPgoal1 = (1-0.85)/2 + 0.85;
-xyoffset = 0.1;
-poffset = 0.1;
-tol = 0.1;
+% xyoffset = 0.1;
+% poffset = 0.1;
+% tol = 0.1;
+xyoffset = -0.05; 
+tol = 0.09;
 if params.trueBetaIdx == 1
     center = [0; 0; 0.95];
     widths = [(params.gmax(1) - params.gmin(1)) + xyoffset;

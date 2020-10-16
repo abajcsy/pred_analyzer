@@ -8,7 +8,7 @@ robot_params = exp2_contingency_planner();
 % Setup what kind of predictors we have
 opt_human_params = exp2_opt_pred();
 frs_human_params = exp2_frs_pred();
-conf_human_params = exp2_conf_pred();
+%conf_human_params = exp2_conf_pred();
 
 %% Video creation!
 save_video = false;
@@ -43,12 +43,11 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup robot start state. 
-r_start = [2, 2, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
-% plot robot state
+r_start = [2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
 rsh = scatter(r_start(1), r_start(2), 'k', 'filled');
 
 %% Setup human start state. 
-h_start = [-1, 0];
+h_start = [1.4, 1.7]; %[2.2, 0.6]; %[2.6, 1];
 % plot human state
 hsh = scatter(h_start(1), h_start(2), 'r', 'filled');
 
@@ -59,7 +58,7 @@ hsh = scatter(h_start(1), h_start(2), 'r', 'filled');
 %{1.069, 0, 0.7762}     --> TTE: 0.6897 s
 %{1.7586, 0, 0.841}     --> TTE: 0 (this could also be close enough to conf)
 %{2.4483, 0, 0.8898}    --> TTE: 0 (already confident enough)
-branch_times = [1.379310, 1.379310, 0.6897, 0.6897, 0, 0];
+branch_times = 0.9; %0.9; %[1.379310, 1.379310, 0.6897, 0.6897, 0, 0];
 
 %% TODO: WHAT TO DO IF TTE IS = 0! --> this means we should just use the conservative model?
 
@@ -67,7 +66,7 @@ branch_times = [1.379310, 1.379310, 0.6897, 0.6897, 0, 0];
 pbeta = robot_params.belief;
 
 %% Setup simulation horizon. 
-simT = 10;
+simT = 1; %10;
 h_xcurr = h_start;
 r_xcurr = r_start;
 
@@ -111,11 +110,7 @@ for t=1:simT
     frs_plan = robot_plan{3};
 
     % Update human state.
-    if t > 2
-        h_ctrl = 0;
-    else
-        h_ctrl = 0; %pi;
-    end
+    h_ctrl = pi/4;
     h_xnext = [h_xcurr(1) + opt_human_params.dt * cos(h_ctrl), ...
                h_xcurr(2) + opt_human_params.dt * sin(h_ctrl)];
     
