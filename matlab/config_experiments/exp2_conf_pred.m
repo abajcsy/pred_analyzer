@@ -21,7 +21,7 @@ params.real_times = params.discrete_times*params.dt;
 %% Initial state and goal of human (in m)!
 params.x0 = [2.6, 1]; %[2, 0];                    % initial position of human (in m)
 params.goal = [-5.5, -1];
-params.beta_prior = [0.5,0.5]; % b(beta = low_conf), b(beta = high_conf)
+params.beta_prior = [0.1,0.9]; % b(beta = low_conf), b(beta = high_conf)
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
 params.binaryg2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));

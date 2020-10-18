@@ -275,8 +275,8 @@ classdef ConfContingencyPlanner < handle
                              obj.belief(2) * reward_opt;
                         
                     if (reward > opt_reward)
-                        
-%                         figure(2)
+%                         
+%                         figure(3)
 %                         hold on
 %                         plot(shared_spline{1}, shared_spline{2}, 'm');
 %                         plot(spline_opt{1}, spline_opt{2}, 'r');
@@ -498,7 +498,7 @@ classdef ConfContingencyPlanner < handle
                     final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
                     val = eval_u(obj.pred_g, final_pred, traj(i,:));
                     if val > 0.0 %obj.pthresh
-                        r = -100.0;
+                        r = -150.0;
                     end
                 elseif strcmp(coll_check, 'opt')
                     lower_pred = opt_relevant_preds{lower_idx};
@@ -506,7 +506,7 @@ classdef ConfContingencyPlanner < handle
                     final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
                     val = eval_u(obj.pred_g, final_pred, traj(i,:));
                     if val > 0.0 %obj.pthresh
-                        r = -100.0;
+                        r = -150.0;
                     end
                 else
                     error('Invalid collision check option! %s', coll_check);

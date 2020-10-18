@@ -37,7 +37,7 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 15;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup

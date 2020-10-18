@@ -42,7 +42,7 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup robot start state. 
-r_start = [2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
+r_start = [1.7, 2.8, -pi/4, 0.01]; %[2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
 rsh = scatter(r_start(1), r_start(2), 'k', 'filled');
 
 %% Setup human start state. 

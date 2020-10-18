@@ -1,17 +1,14 @@
 clear all
 close all
 
-load('final_conf_example_1090_COLLISION.mat');
+load('final_contingency_example_1090_CONSERVATIVE.mat');
 load('exp_2_opt_human_traj_1090.mat');
-
-% load('conf_example_v8.mat');
-% load('exp_2_opt_human_traj_5050.mat');
 
 %% Video creation!
 save_video = true;
 if save_video 
     curr_date = datestr(now,'mm_dd_yyyy_HH_MM');
-    filename = strcat('exp2_conf_baseline_',curr_date,'.mp4');
+    filename = strcat('exp2_contingency_',curr_date,'.mp4');
     vout = VideoWriter(filename,'MPEG-4');
     vout.Quality = 100;
     vout.FrameRate = 5;
@@ -33,9 +30,9 @@ qrg = quiver(robot_params.goal(1), robot_params.goal(2), ...
 qrg.Marker = 'o';
 qrg.MarkerFaceColor = 'b';
 % plot human goal.
-scatter(human_params.goal(1), human_params.goal(2), 'r');
-xlim([human_params.gmin(1), human_params.gmax(1)])
-ylim([human_params.gmin(2), human_params.gmax(2)])
+scatter(opt_human_params.goal(1), opt_human_params.goal(2), 'r');
+xlim([opt_human_params.gmin(1), opt_human_params.gmax(1)])
+ylim([opt_human_params.gmin(2), opt_human_params.gmax(2)])
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
@@ -51,6 +48,10 @@ tb1 = [];
 tb2 = [];
 all_contour_h = [];
 rrecth = [];
+rps_h = [];
+rpopt_h = [];
+rpfrs_h = [];
+rrecth = [];
 
 %% RUN SIM.
 for t=1:simT
@@ -58,21 +59,27 @@ for t=1:simT
     h_xcurr = zt(1:2)'; %all_h_states{t};
     r_xcurr = all_r_states{t};
     robot_plan = all_plans{t};
-    human_preds = all_preds{t};
+    opt_human_preds = all_opt_preds{t};
+    frs_human_preds = all_frs_preds{t};
     pbeta = all_beliefs{t};
     
     hsh.CData = gray_c;
     rsh.Color = gray_c;
     rsh.MarkerFaceColor = 'w';
-    if ~isempty(rph)
-        rph.CData = gray_c;
-    end
     if ~isempty(rrecth)
         rrecth.EdgeColor = gray_c;
         rrecth.FaceColor = 'w';
     end
+    if ~isempty(rps_h)
+        rps_h.CData = gray_c;
+        rps_h.MarkerEdgeColor = gray_c;
+        rpopt_h.CData = gray_c;
+        rpopt_h.MarkerEdgeColor = gray_c;
+        rpfrs_h.CData = gray_c;
+        rpfrs_h.MarkerEdgeColor = gray_c;
+    end
     
-    %% Plot the predictions.
+%     %% Plot the predictions.
 %     r_color = linspace(0.1,0.9,length(human_preds));
 %     if ~isempty(all_contour_h)
 %         for i=1:length(all_contour_h)
@@ -98,21 +105,25 @@ for t=1:simT
 %     end
 
     %% Plot robot plan
-    rph = scatter(robot_plan{1}, robot_plan{2}, 'k');
+    % Plot robot shared plan, and contingency plans.
+    rps_h = scatter(shared_plan{1}, shared_plan{2}, 'markeredgecolor', 'k');
+    rpopt_h = scatter(opt_plan{1}, opt_plan{2}, 'markeredgecolor', 'r', 'markerfacecolor', 'r');
+    rpfrs_h = scatter(frs_plan{1}, frs_plan{2}, 'markeredgecolor', 'c');
 
     % Update human state.
     %h_ctrl = pi/4;
     zt = traj(:,t+1);
-    h_xnext = zt(1:2)'; %[h_xcurr(1) + human_params.dt * cos(h_ctrl), ...
-              % h_xcurr(2) + human_params.dt * sin(h_ctrl)];
+    h_xnext = zt(1:2)';%[h_xcurr(1) + opt_human_params.dt * cos(h_ctrl), ...
+              % h_xcurr(2) + opt_human_params.dt * sin(h_ctrl)];
     
     % Update robot state.
-    ntsteps = floor(human_params.dt/robot_params.dt);
-    r_tstep = t*3;
-    r_xnext = [robot_plan{1}(r_tstep), robot_plan{2}(r_tstep), ...
-                            robot_plan{5}(r_tstep), robot_plan{3}(r_tstep)];
+    ntsteps = floor(opt_human_params.dt/robot_params.dt);
+    r_xnext = all_r_states{t+1}; %[robot_plan{1}(r_tstep), robot_plan{2}(r_tstep), ...
+              %              robot_plan{5}(r_tstep), robot_plan{3}(r_tstep)];
     
-    %% Plot human and robot state.    
+    %% Plot human and robot state.
+    hsh = scatter(h_xcurr(1), h_xcurr(2), 'r', 'filled');
+    
     % plot robot state body. 
     pos = [r_xcurr(1)-footprint_rad, ...
            r_xcurr(2)-footprint_rad, ...
@@ -123,15 +134,11 @@ for t=1:simT
     rrecth.FaceColor = [153, 192, 255]/255.;
     % plot robot state center
     %rsh = scatter(r_xcurr(1), r_xcurr(2), 'k', 'markerfacecolor', 'w', 'markeredgecolor', 'k');
-   
     rsh = quiver(r_xcurr(1), r_xcurr(2), ...
                 cos(r_xcurr(3)), sin(r_xcurr(3)), 'b');
     rsh.Marker = 'o';
     rsh.MarkerFaceColor = 'b';
     
-    % plot human!
-    hsh = scatter(h_xcurr(1), h_xcurr(2), 'r', 'filled');
-
     %tatreplan = scatter(robot_plan{1}(ntsteps), robot_plan{2}(ntsteps), 'r', 'filled');
     
     % Plot the belief.
@@ -139,10 +146,10 @@ for t=1:simT
         delete(tb1)
         delete(tb2)
     end
-    tb1 = text(-5.5,4,strcat('b_{', num2str(t-1),'}(low conf) = ', num2str(pbeta(1))));
+    tb1 = text(-5.5,4,strcat('b_0(low conf) = ', num2str(pbeta(1))));
     tb1.Color = 'r';
     tb1.FontSize = 12;
-    tb2 = text(-5.5,4.5,strcat('b_{', num2str(t-1),'}(high conf) = ', num2str(pbeta(2))));
+    tb2 = text(-5.5,4.5,strcat('b_0(high conf) = ', num2str(pbeta(2))));
     tb2.Color = 'r';
     tb2.FontSize = 12;
     

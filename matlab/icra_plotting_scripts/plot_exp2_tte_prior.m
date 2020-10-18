@@ -30,6 +30,9 @@ end
 alpha = 0.5;
 acolor = 'r';
 [lineOut, fillOut] = stdshade(tte_per_prior', alpha,acolor);
+lineOut.Marker = 'o';
+lineOut.MarkerFaceColor = 'r';
+lineOut.MarkerSize = 5;
 
 %plot(beliefs, sum_per_prior/length(all_ttes_per_init_cond), 'o-', 'linewidth', 2, ...
 %    'color', 'r', ...
@@ -37,13 +40,13 @@ acolor = 'r';
 
 xlim([1,9])
 %ylim([0,4])
-ylabel('$min~TTE$', 'Interpreter', 'latex', 'fontsize', 16)
+ylabel('$TTL$', 'Interpreter', 'latex', 'fontsize', 16)
 xlabel('$b_0(\beta = unmodelled)$', 'Interpreter', 'latex', 'fontsize', 16)
-title('min~TTE as function of prior', 'Interpreter', 'latex', 'fontsize', 20)
+title('TTL as function of prior', 'Interpreter', 'latex', 'fontsize', 20)
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,400,700])
 xticks(linspace(1,9,9))
 xticklabels({'0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.8','0.9'})
-yticks(linspace(0,4,5))
-box on
+yticks([0,0.5,1,1.5,2,2.5,3])
+box off
 grid off

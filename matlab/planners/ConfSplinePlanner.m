@@ -262,7 +262,7 @@ classdef ConfSplinePlanner < handle
                 
                 if strcmp(coll_check, 'conf')
                     %% NOTE THIS IS A HACCCKKKK
-                    opt_eps = 0.01; %obj.compute_likely_states(final_pred, obj.pthresh);
+                    opt_eps = obj.compute_likely_states(final_pred, obj.pthresh);
                 else
                     opt_eps = 0.0;
                 end

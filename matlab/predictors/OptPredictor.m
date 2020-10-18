@@ -9,10 +9,12 @@ classdef OptPredictor
         goal            % (arr) real-world goal coords in x-y
         nx              % (int) total number of states
         nu              % (int) total number of controls
+        q_fun
+        q_fun_grid
     end
     
     methods
-        function obj = OptPredictor(grid, goal)
+        function obj = OptPredictor(grid, goal, q_fun, q_fun_grid)
             %OPTPREDICTOR Construct an instance of this class
             %   Detailed explanation goes here
             obj.grid = grid;
@@ -21,6 +23,8 @@ classdef OptPredictor
             obj.controls = obj.gen_controls(gdisc);
             obj.goal = goal;
             obj.nx = obj.grid.N(1)*obj.grid.N(2);
+            obj.q_fun = q_fun;
+            obj.q_fun_grid = q_fun_grid;
         end
         
         %% Predict for time horizon of T!
@@ -64,13 +68,22 @@ classdef OptPredictor
         %% Computes P(u_t | x_t) \propto e^(-||x_t+1 - goal||_2)
         function pu = pu(obj, x, ui)
             xnext = obj.dynamics(x, ui);
-            qval = -1 * sqrt((xnext(1) - obj.goal(1))^2 + (xnext(2) - obj.goal(2))^2);
+            
+            % get q-value from our table. 
+            ureal = obj.controls{ui};
+            qfun = obj.q_fun(num2str(ureal));
+            qval = qfun.GetDataAtReal({xnext(1),xnext(2)});
+            
+            %qval = -1 * sqrt((xnext(1) - obj.goal(1))^2 + (xnext(2) - obj.goal(2))^2);
             numer = exp(qval);
             
             denom = 0.0;
             for uj=1:obj.nu
                 xnext = obj.dynamics(x, uj);
-                qval = -1 * sqrt((xnext(1) - obj.goal(1))^2 + (xnext(2) - obj.goal(2))^2);
+                ureal = obj.controls{ui};
+                qfun = obj.q_fun(num2str(ureal));
+                qval = qfun.GetDataAtReal({xnext(1),xnext(2)});
+                %qval = -1 * sqrt((xnext(1) - obj.goal(1))^2 + (xnext(2) - obj.goal(2))^2);
                 denom = denom + exp(qval);
             end
             
