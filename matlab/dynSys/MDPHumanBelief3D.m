@@ -576,7 +576,7 @@ classdef MDPHumanBelief3D < handle
                 uidx = opt_ctrl_idxs(i);
                 u = obj.controls{uidx};
                 belief = obj.belief_update(u,z);
-                belief_traj(end+1) = belief
+                belief_traj(end+1) = belief;
                 if (trueThetaIdx == 1 && belief >= target_belief) || ...
                     (trueThetaIdx == 2 && belief <= target_belief)
                     tte_idx = i+1;
