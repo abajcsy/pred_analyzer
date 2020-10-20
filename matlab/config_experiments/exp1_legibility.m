@@ -3,21 +3,21 @@ function params = exp1_legibility()
 %% Grid setup
 params.gmin = [-6, -6, 0];
 params.gmax = [6, 6, 1];
-params.gnums = [30, 30, 25];
+params.gnums = [40, 40, 40]; %[30, 30, 25];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.thetas = {[-5.5, -1], [1.8, -5.5]}; %{[-5.5, 0], [-3, 4]};
-params.trueThetaIdx = 2;
+params.thetas = {[1.5, -5.5], [-3.517, -3.1]}; %{[-5.5, -1], [1.8, -5.5]}; 
+params.trueThetaIdx = 1;
+%params.trueThetaIdx = 2;
 
 %% Target Set Setup
 % tol = 1-0.85;
 % centerPgoal1 = (1-0.85)/2 + 0.85;
-xyoffset = 0.1;
-poffset = 0.1;
-tol = 0.1;
+xyoffset = -0.05; 
+tol = 0.09;
 if params.trueThetaIdx == 1
     center = [0; 0; 0.95];
     widths = [(params.gmax(1) - params.gmin(1)) + xyoffset;
@@ -38,11 +38,17 @@ num_timesteps = 30;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
-params.uMode = "max"; % min or max
-params.uThresh = 0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uMode = "min"; %"max"; % min or max
+%params.uThresh = 0.2; %0.15; % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+
+%params.uThresh = 0.0;
+%params.uThresh = 0.05;
+%params.uThresh = 0.1;
+params.uThresh = 0.15; % best threshold for max
+%params.uThresh = 0.2;
 
 %% Plotting?
-params.plot = true;        % Visualize the BRS and the optimal trajectory?
+params.plot = false;        % Visualize the BRS and the optimal trajectory?
 
 %% Save traj?
 params.save = true;        % Save the BRS and the optimal trajectory?
@@ -57,16 +63,29 @@ g_phys = createGrid(params.gmin(1:2)', ...
 params.reward_info.g = g_phys; 
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
+params.g2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
+pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/data/');
-map_name = 'cluttered_map_doorway.png';
-obs_data = imread(strcat(data_path, map_name));
-n_phys = numel(params.gmin) - numel(params.bdims);
-params.reward_info.obstacles = get_obs_map(obs_data, ...
-                                        params.gmin(1:n_phys), ...
-                                        params.gmax(1:n_phys), ...
-                                        params.gnums(1:n_phys));
-
+%map_name = 'cluttered_map_doorway.png';
+map_name = 'map.png';
+% obs_data = imread(strcat(data_path, map_name));
+% n_phys = numel(params.gmin) - numel(params.bdims);
+% params.reward_info.obstacles = get_obs_map(obs_data, ...
+%                                         params.gmin(1:n_phys), ...
+%                                         params.gmax(1:n_phys), ...
+%                                         params.gnums(1:n_phys));
+obs_data_2d = imread(strcat(data_path, map_name));
+%obs_data_2d = rgb2gray(obs_data_3d);
+params.obs_map_full = (obs_data_2d == 0) .* 1 + (obs_data_2d > 0) .* 0;
+params.gimg = createGrid(params.gmin(1:2), params.gmax(1:2), size(params.obs_map_full));
+obs_map = eval_u(params.gimg, params.obs_map_full, pts);
+% make grid object to pass into reward info
+grid_obs = Grid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
+grid_obs.SetData(reshape(obs_map, params.gnums(1:2)));
+params.reward_info.obstacles = grid_obs;                                    
+                                    
+                                    
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
 for i=1:numel(params.thetas)
@@ -75,7 +94,8 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {2.276,-2.69,0.5};% {4.345,-2.276,0.5}; %{1.5,1.5,0.5};
+params.initial_state = {0.6207, 0.2069, 0.5}; %{0.6207, 0.05, 0.5};
+%{1.034, -0.6207, 0.5}; %{2.276,-2.69,0.5};% {4.345,-2.276,0.5}; %{1.5,1.5,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.99; 
@@ -149,7 +169,7 @@ end
 
 %% Pack value function params
 params.extraArgs.targets = params.initial_value_fun;
-params.extraArgs.stopInit = params.initial_state;
+%params.extraArgs.stopInit = params.initial_state;
 
 % 'none' or 'set' for backward reachable set (BRS)
 % 'minVWithL' for backward reachable tube (BRT)

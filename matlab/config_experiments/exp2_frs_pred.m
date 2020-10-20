@@ -1,7 +1,7 @@
 function params = exp2_frs_pred()
 params.gmin = [-6,-6];
 params.gmax = [6,6];
-params.gnums = [30,30];
+params.gnums = [45, 45];
 params.pred_g = createGrid(params.gmin, params.gmax, params.gnums);
 params.gdisc = (params.gmax-params.gmin) ./ (params.gnums-1);
 
@@ -16,8 +16,8 @@ params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.x0 = [2, 0];                    % initial position of human (in m)
-params.goal = [-3.5, 0];
+params.x0 = [2.6, 1];                    % initial position of human (in m)
+params.goal = [-5.5, -1];
 
 %% Create CONF-AWARE predictor.
 fprintf('Setting up FRS PREDICTOR...\n');

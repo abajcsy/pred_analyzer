@@ -88,14 +88,28 @@ classdef ConfContingencyPlanner < handle
             dyn_feas_xythvel = [];
             for i=1:length(obj.disc_xythvel)
                 candidate_goal = obj.disc_xythvel(i,:);
+                
+                % ignore candidate goals inside obstacles.
+                if eval_u(obj.g2d, obj.sd_obs, candidate_goal(1:2)) < 0
+                    continue;
+                end
+                
                 curr_spline = ...
                     spline(start, candidate_goal, horiz, num_waypts);
                 feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
                                                   obj.max_linear_vel, ...
                                                   obj.max_angular_vel, ...
                                                   horiz);
+                
                 if feasible_horiz <= horiz
                     dyn_feas_xythvel = [dyn_feas_xythvel; candidate_goal];
+                    
+%                     figure(3)
+%                     hold on
+%                     scatter(candidate_goal(1), candidate_goal(2), 'g');
+%                     xlim([-6.5,6.5]);
+%                     ylim([-6.5,6.5]);
+%                     grid on
                 end
             end
         end
@@ -121,7 +135,10 @@ classdef ConfContingencyPlanner < handle
             
             % Compute number of waypoints in each part of the plan.
             [~,end_idx] = min(abs(obj.times - branch_t));
-            binned_branch_t = obj.times(end_idx);
+            
+            %% OVERESTIMATE THE TIME TO BRANCH
+            end_idx = end_idx+1;
+            binned_branch_t = obj.times(end_idx); 
             shared_num_waypts = end_idx;
             branch_num_waypts = abs(obj.num_waypts - end_idx)+1;
             
@@ -258,8 +275,8 @@ classdef ConfContingencyPlanner < handle
                              obj.belief(2) * reward_opt;
                         
                     if (reward > opt_reward)
-                        
-%                         figure(2)
+%                         
+%                         figure(3)
 %                         hold on
 %                         plot(shared_spline{1}, shared_spline{2}, 'm');
 %                         plot(spline_opt{1}, spline_opt{2}, 'r');
@@ -481,7 +498,7 @@ classdef ConfContingencyPlanner < handle
                     final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
                     val = eval_u(obj.pred_g, final_pred, traj(i,:));
                     if val > 0.0 %obj.pthresh
-                        r = -100.0;
+                        r = -150.0;
                     end
                 elseif strcmp(coll_check, 'opt')
                     lower_pred = opt_relevant_preds{lower_idx};
@@ -489,7 +506,7 @@ classdef ConfContingencyPlanner < handle
                     final_pred = alpha .* lower_pred + (1-alpha) .* upper_pred;
                     val = eval_u(obj.pred_g, final_pred, traj(i,:));
                     if val > 0.0 %obj.pthresh
-                        r = -100.0;
+                        r = -150.0;
                     end
                 else
                     error('Invalid collision check option! %s', coll_check);

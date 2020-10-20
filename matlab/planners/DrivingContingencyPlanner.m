@@ -137,6 +137,11 @@ classdef DrivingContingencyPlanner < handle
                                               binned_branch_t, ...
                                               shared_num_waypts);
                                           
+            % flag if there are no dynamically feasible shared goals!                              
+            if isempty(feasible_shared_goals)
+                error('No dynamically feasible shared goals! Try finer discretization.');
+            end
+                                          
             % Three options for how to search for shared goal:
             % Option 1:
             [num_shared_goals,~] = size(feasible_shared_goals); 

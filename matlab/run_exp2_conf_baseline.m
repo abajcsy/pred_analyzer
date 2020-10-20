@@ -7,18 +7,7 @@ robot_params = exp2_planner_baselines();
 %% Load up all the info for the human.
 % Setup what kind of collision checking we will do
 coll_check = 'conf'; 
-%coll_check = 'opt'; 
-%coll_check = 'frs'; 
-
-if strcmp(coll_check, 'conf')
-    human_params = exp2_conf_pred();
-elseif strcmp(coll_check, 'opt')
-    human_params = exp2_opt_pred();
-elseif strcmp(coll_check, 'frs')
-    human_params = exp2_frs_pred();
-else
-    error('other predictors not implemented here yet!')
-end
+human_params = exp2_conf_pred();
 
 %% Video creation!
 save_video = false;
@@ -53,11 +42,11 @@ set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
 %% Setup robot start state. 
-r_start = [2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
+r_start = [1.7, 2.8, -pi/4, 0.01]; %[2, 3, -pi/4, 0.01]; %[1, 4, -pi/4, 0.01];
 rsh = scatter(r_start(1), r_start(2), 'k', 'filled');
 
 %% Setup human start state. 
-h_start = [2.6, 1];
+h_start = [1.4, 1.7]; %[2.2, 0.6]; %[2.6, 1];
 % plot human state
 hsh = scatter(h_start(1), h_start(2), 'r', 'filled');
 
@@ -66,10 +55,10 @@ simT = 10;
 h_xcurr = h_start;
 r_xcurr = r_start;
 
-if strcmp(coll_check, 'conf')
-    pbeta = human_params.beta_prior; 
-end
+%% Setup prior over betas.
+pbeta = human_params.beta_prior; 
 
+%% Setup handles. 
 gray_c = [0.8,0.8,0.8];
 
 rph = [];
@@ -80,13 +69,8 @@ all_contour_h = [];
 for t=1:simT
     % Predict human!
     fprintf('Predicting...\n');
-    if strcmp(coll_check, 'conf')
-        human_preds = ...
-            human_params.predictor.predict(h_xcurr, human_params.T, pbeta);
-    elseif strcmp(coll_check, 'opt') || strcmp(coll_check, 'frs')
-        human_preds = ...
-            human_params.predictor.predict(h_xcurr, human_params.T);
-    end
+    human_preds = ...
+        human_params.predictor.predict(h_xcurr, human_params.T, pbeta);
     
     % Plan for the robot!
     fprintf('Planning...\n');
@@ -95,11 +79,7 @@ for t=1:simT
             human_preds, human_params.real_times, human_params.pred_g, coll_check);
     
     % Update human state.
-    if t > 2
-        h_ctrl = 0;
-    else
-        h_ctrl = 0; %pi;
-    end
+    h_ctrl = pi/4;
     h_xnext = [h_xcurr(1) + human_params.dt * cos(h_ctrl), ...
                h_xcurr(2) + human_params.dt * sin(h_ctrl)];
     
@@ -159,9 +139,8 @@ for t=1:simT
     pause(0.1)
     
     %% Update belief over betas.
-    if strcmp(coll_check, 'conf')
-        pbeta = human_params.predictor.belief_update(h_xnext, h_xcurr, pbeta);
-    end
+    pbeta = human_params.predictor.belief_update(h_xnext, h_xcurr, pbeta);
+
     
     %% Finally update states.
     h_xcurr = h_xnext; 

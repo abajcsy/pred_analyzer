@@ -1,5 +1,5 @@
 function [value_funs, tau, extraOuts] = ...
-    DiscTimeHJIPDE_solve(initV, tau, schemeData, compMethod, extraArgs)
+    DiscTimeHJIPDE_solve_DEBUG(initV, tau, schemeData, compMethod, extraArgs)
 % [data, tau, extraOuts] = ...
 %   DiscTimeHJIPDE_solve(initV, tau, schemeData, minWith, extraArgs)
 %     Solves HJIPDE with initial conditions initV, at times tau, and with
@@ -87,6 +87,8 @@ end
 % Store initial value function.
 value_funs = cell(1, num_timesteps);
 value_funs{num_timesteps} = initV;
+all_opt_ctrl_idxs = cell(1, num_timesteps);
+all_opt_ctrl_idxs{num_timesteps} = nan(g.N'); % CONTROL IS NOT DEFINED AT FINAL TIME!
 
 % Compute BRS backwards in time.
 tidx = num_timesteps - 1;
@@ -107,23 +109,24 @@ end
 % (Benchmarking) Timer for the overall computation.
 overallStart = tic;
 
-extraOuts.stoptau = 1;
-
 while tidx > 0
     
     %(Benchmarking) Timer for single computation.
     singleCompStart = tic;
 
     % Create grid and set data to value function at t+1
-    compute_grid = Grid(g.min, g.max, g.N);
-    compute_grid.SetData(value_funs{tidx + 1});
+    %compute_grid = Grid(g.min, g.max, g.N);
+    %compute_grid.SetData(value_funs{tidx + 1});
     
-    if isfield(extraArgs, 'stopInit')
-        initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
-        initial_idx = initial_idx{1};
-        fprintf('Value of initial state at t=-%f: %f ...\n', tidx+1, ...
-           value_funs{tidx + 1}(initial_idx));
-    end
+    % Grab the value function at the next timestep. 
+    next_value_fun = value_funs{tidx + 1};
+    
+%     if isfield(extraArgs, 'stopInit')
+%         initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
+%         initial_idx = initial_idx{1};
+%         fprintf('Value of initial state at t=-%f: %f ...\n', tidx+1, ...
+%            value_funs{tidx + 1}(initial_idx));
+%     end
     
     fprintf("Computing value function for iteration t=%f...\n", tidx);
     
@@ -131,18 +134,28 @@ while tidx > 0
 
     % Compute possible next state after one timestep and find possible
     % value functions for each control
-    current_state = compute_grid.get_grid();
-    possible_value_funs = zeros([compute_grid.gnums, num_ctrls]);
+    current_state = g.xs; %compute_grid.get_grid();
+    possible_value_funs = zeros([g.N', num_ctrls]); %zeros([compute_grid.gnums, num_ctrls]);
     for ui=1:num_ctrls
         u = controls{ui};
-        next_state = next_state_cache(num2str(u));
-%         next_state = dyn_sys.dynamics(current_state, u_i);
         likelyMask = likelyMasks(num2str(u));
-        data_next = compute_grid.GetDataAtReal(next_state);
+        
+        next_state = next_state_cache(num2str(u));
+        
         if num_dims == 3
-            possible_value_funs(:,:,:,ui) = data_next .* likelyMask;
+            next_state_lin = [next_state{1}(:), next_state{2}(:), next_state{3}(:)];
         elseif num_dims == 4
-            possible_value_funs(:,:,:,:,ui) = data_next .* likelyMask;
+            next_state_lin = [next_state{1}(:), next_state{2}(:), ...
+                             next_state{3}(:), next_state{4}(:)];
+        end
+        
+        value_at_next_state = eval_u(g, next_value_fun, next_state_lin, 'nearest');
+        value_at_next_state = reshape(value_at_next_state, g.N');
+        %compute_grid.GetDataAtReal(next_state);
+        if num_dims == 3
+            possible_value_funs(:,:,:,ui) = value_at_next_state .* likelyMask;
+        elseif num_dims == 4
+            possible_value_funs(:,:,:,:,ui) = value_at_next_state .* likelyMask;
         end                
     end
 
@@ -151,7 +164,8 @@ while tidx > 0
         if strcmp(compMethod, "none") || strcmp(compMethod, "set")
             value_fun = min(possible_value_funs, [], num_dims+1);
         elseif strcmp(compMethod, "minVWithL") || strcmp(compMethod, "minVwithL")
-            value_fun = min(min(possible_value_funs, [], num_dims+1), targets);
+            [value_fun, opt_ctrl_idxs] = min(possible_value_funs, [], num_dims+1);
+            value_fun = min(value_fun, targets);
         else 
             warning("compMethod is not supported!")
             return;
@@ -160,13 +174,18 @@ while tidx > 0
         if strcmp(compMethod, "none") || strcmp(compMethod, "set")
             value_fun = max(possible_value_funs, [], num_dims+1);
         elseif strcmp(compMethod, "minVWithL") || strcmp(compMethod, "minVwithL")
-            value_fun = min(max(possible_value_funs, [], num_dims+1), targets);
+            [value_fun, opt_ctrl_idxs] = max(possible_value_funs, [], num_dims+1);
+            value_fun = min(value_fun, targets);
         else
             error("compMethod is not supported!")
         end
     else
         error("uMode not specified or not supported!")
     end
+    
+    % DEBUGGING!
+    all_opt_ctrl_idxs{tidx} = opt_ctrl_idxs;
+    %all_opt_ctrl_idxs{end+1} = opt_ctrl_idxs;
     
     % If there are obstacles, take max.
     value_fun = max(value_fun, obstacles);
@@ -191,6 +210,9 @@ while tidx > 0
     
     tidx = tidx - 1;
 end
+
+% DEBUGGING!
+extraOuts.all_opt_ctrl_idxs = all_opt_ctrl_idxs;
 
 % Save data
 % save('brt_min_uthresh013.mat', 'value_funs', 'gmin', 'gmax', 'gnums', ...

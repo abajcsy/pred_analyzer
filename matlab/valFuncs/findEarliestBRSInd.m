@@ -22,11 +22,12 @@ i = upper;
 %clns = repmat({':'}, 1, grid.dim);
 
 while i >= lower
+    vfun = value_funs{i};
     fprintf('In findEarliestBRSInd(): Value of initial state at t=-%f: %f ...\n', i, ...
-           value_funs{i}(initial_idx));
+           vfun(initial_idx));
         
     %valueAtX = eval_u(grid, value_funs{i}(clns{:}), z);
-    valueAtX = value_funs{i}(initial_idx);
+    valueAtX = vfun(initial_idx);
     if valueAtX <= zero_tol
         fprintf('==> Value of initial state at earliest appearance in BRS: %f\n', ...
             valueAtX);
