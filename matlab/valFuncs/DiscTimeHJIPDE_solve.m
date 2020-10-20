@@ -107,6 +107,8 @@ end
 % (Benchmarking) Timer for the overall computation.
 overallStart = tic;
 
+extraOuts.stoptau = 1;
+
 while tidx > 0
     
     %(Benchmarking) Timer for single computation.

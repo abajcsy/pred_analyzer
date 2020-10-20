@@ -6,9 +6,9 @@ robot_params = exp2_planner_baselines();
 
 %% Load up all the info for the human.
 % Setup what kind of collision checking we will do
-%coll_check = 'conf'; 
+coll_check = 'conf'; 
 %coll_check = 'opt'; 
-coll_check = 'frs'; 
+%coll_check = 'frs'; 
 
 if strcmp(coll_check, 'conf')
     human_params = exp2_conf_pred();
