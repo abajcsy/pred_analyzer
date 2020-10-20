@@ -253,7 +253,7 @@ classdef MDPHumanBelief3D < handle
                 q_i(isInvalid) = 0;
                 q = Grid(g_min, g_max, g_nums);
                 
-                if u_i(1)==0 && u_i(1)==0 % Ensure stop action is only equally likely if at goal.
+                if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
                     q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
                     q.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
                 end

@@ -15,8 +15,9 @@ close all
 % params = mdpHumanConfidence4DSimpleEnv();
 % params = mdpHumanConfidence3DSimpleEnv();
 
-params = exp1_legibility();
+% params = exp1_legibility();
 % params = exp2_confidence();
+params = exp4_gradient();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -24,10 +25,12 @@ params = exp1_legibility();
 %% Sanity check -- Plot the opt control policies?
 % params.dyn_sys.plot_opt_policy(1);
 % params.dyn_sys.plot_opt_policy(2);
+% params.dyn_sys.plot_opt_policy(3);
 
 %% Plot optimal control policy starting from initial condition.
-% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
-% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
+params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 3);
 
 %% Solve for the discrete-time value function!
 [value_funs, tauOut, extraOuts] = ...
@@ -36,13 +39,53 @@ params = exp1_legibility();
                          params.schemeData, ...
                          params.minWith, ...
                          params.extraArgs);
+                     
+% % Plot the BRS.
+% visBRSVideo(params.g, ...
+%             value_funs, ...
+%             params.initial_state, ...
+%             tauOut, ...
+%             extraOuts.stoptau, ...
+%             params.dt);
+
+%% Visualize Projection of Value Funs
+row_len = 6;
+figure;
+for i=1:numel(value_funs)
+    h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
+    axis square
+    [gOut, dataOut] = proj(params.g, value_funs{numel(value_funs)-numel(value_funs)+i}, [1,1,0], 'min');
+    visSetIm(gOut, dataOut);
+    xlim([0,1]);
+    ylim([-0.4,0.4]);
+    t = title(['t=',num2str((i-1)),' s'], 'Interpreter', 'Latex');
+    t.FontSize = 18;
+    grid on;
+end
+
+% row_len = 6;
+% figure;
+% for i=1:numel(value_funs)
+%     h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
+%     axis square
+%     [gOut, dataOut] = proj(params.g, value_funs{numel(value_funs)-numel(value_funs)+i}, [0,0,1], 'min');
+%     visSetIm(gOut, dataOut);
+%     xlim([-4,4]);
+%     ylim([-4,4]);
+%     t = title(['t=',num2str((i-1)),' s'], 'Interpreter', 'Latex');
+%     t.FontSize = 18;
+%     grid on;
+% end
+
+[gOut, dataOut] = proj(params.g, value_funs{1}, [1,1,0], 'min');
+dataOut
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
 fprintf("Computing opt traj...\n");
 [traj, traj_tau, ctrls] = computeOptTraj(params.initial_state, ....
                                   params.g, ...
                                   value_funs, ...
-                                  tauOut, ...
+                                   tauOut, ...
                                   params.dyn_sys, ...
                                   params.uMode, ...
                                   params.extraArgsCtrl);

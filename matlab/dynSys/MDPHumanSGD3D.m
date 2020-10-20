@@ -353,32 +353,36 @@ classdef MDPHumanSGD3D < handle
         % state space with the obstacle-feature for each (x,y) pair.
         function obs_feature = compute_obs_feature(obj, reward_info)
             obs_feature = [];
-            state_grid = reward_info.g.xs;
-            for oi = 1:length(reward_info.obstacles)
-                    obs_info = reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2) - ones(size(obs_info(1:2)))*obj.obs_padding;
-                    obs_max = obs_info(1:2) + obs_info(3:4) + ones(size(obs_info(1:2)))*obj.obs_padding;
-                    obs_feature_curr = ...
-                        shapeRectangleByCorners(reward_info.g, ...
-                                                obs_min, obs_max);
-                                             
-                    % convert the signed distance into a "bump distance"
-                    % where phi(x,u) = 0 if outside obstacle
-                    % and   phi(x,u) = signedDist inside obstacle.
-                    obs_mask = (state_grid{1} >= obs_min(1)) & ...
-                        (state_grid{2} >= obs_min(2)) & ...
-                        (state_grid{1} <= obs_max(1)) & ...
-                        (state_grid{2} <= obs_max(2)); 
-                    
-                    obs_feature_curr = obs_feature_curr .* obs_mask;
-                    
-                    % combine all obstacle signed distance functions.
-                    if isempty(obs_feature)
-                        obs_feature = obs_feature_curr;
-                    else
-                        obs_feature = min(obs_feature, obs_feature_curr);
-                    end
-            end
+            obs_feature = reward_info.obstacles.data;
+%             obs_feature(obs_feature<=0) = -obj.nearInf;
+            obs_feature(obs_feature<0) = 0;
+%             obs_feature = -1 .* obs_feature;
+
+%             for oi = 1:length(reward_info.obstacles)
+%                     obs_info = reward_info.obstacles{oi};
+%                     obs_min = obs_info(1:2) - ones(size(obs_info(1:2)))*obj.obs_padding;
+%                     obs_max = obs_info(1:2) + obs_info(3:4) + ones(size(obs_info(1:2)))*obj.obs_padding;
+%                     obs_feature_curr = ...
+%                         shapeRectangleByCorners(reward_info.g, ...
+%                                                 obs_min, obs_max);
+%                                              
+%                     % convert the signed distance into a "bump distance"
+%                     % where phi(x,u) = 0 if outside obstacle
+%                     % and   phi(x,u) = signedDist inside obstacle.
+%                     obs_mask = (state_grid{1} >= obs_min(1)) & ...
+%                         (state_grid{2} >= obs_min(2)) & ...
+%                         (state_grid{1} <= obs_max(1)) & ...
+%                         (state_grid{2} <= obs_max(2)); 
+%                     
+%                     obs_feature_curr = obs_feature_curr .* obs_mask;
+%                     
+%                     % combine all obstacle signed distance functions.
+%                     if isempty(obs_feature)
+%                         obs_feature = obs_feature_curr;
+%                     else
+%                         obs_feature = min(obs_feature, obs_feature_curr);
+%                     end
+%             end
         end
         
         %% Computes the Q-function for theta denoted by true_theta_idx 
@@ -408,6 +412,19 @@ classdef MDPHumanSGD3D < handle
                 % Set reward to -inf if moving outside grid
 %                 phi_g(isnan(phi_g)) = -obj.nearInf;
 %                 phi_o(isnan(phi_o)) = -obj.nearInf;
+
+                % -inf if moving outside grid
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                
+                if obj.has_obs
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+                else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle_mask = zeros(size(state_grid{1}));
+                end
                 
                 phi_g = reshape(phi_g, g_nums(1), g_nums(2));
                 phi_o = reshape(phi_o, g_nums(1), g_nums(2));
@@ -417,6 +434,16 @@ classdef MDPHumanSGD3D < handle
                 %   agent outside of the grid and = 0 else.
                 %r_i = obj.w1 .* phi_g + w2 .* phi_o;
                 r_i = (1-w2) .* phi_g + w2 .* phi_o;
+                r_i(penalty_outside_mask==1 | penalty_obstacle_mask<0) = -1 .* obj.nearInf;
+                
+                if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
+                    grid = Grid(g_min, g_max, g_nums);
+                    grid.SetData(ones(size(next_state{1})) .* -obj.nearInf);
+                    goal = {obj.reward_info.goal(1), obj.reward_info.goal(2)};
+                    grid.SetDataAtReal(goal, 0);
+                    r_i = grid.data;
+                end
+                
                 r_fun(num2str(u_i)) = r_i;
                 
                 % === plot reward landscpe === %
@@ -471,10 +498,41 @@ classdef MDPHumanSGD3D < handle
             isInvalid = (sum_exp == 0);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
+                next_state = obj.physical_dynamics(state_grid, u_i);
                 q_i = q_fun(num2str(u_i)).data;
                 q_i(isInvalid) = 0;
                 q = Grid(g_min, g_max, g_nums);
+                
+%                 if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
+%                     q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+%                     q.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+%                 end
+
+                % -inf if moving outside grid or into obstacle
+                % -inf if moving outside grid
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                
+                if obj.has_obs
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+                else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle_mask = zeros(size(state_grid{1}));
+                end
+                                   
+                q_i(penalty_outside_mask==1 | penalty_obstacle_mask < 0) = -obj.nearInf; 
                 q.SetData(q_i);
+                
+                if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
+                    goal = {obj.reward_info.goal(1), obj.reward_info.goal(2)};
+                    val_at_goal = q.GetDataAtReal(goal);
+                    q = Grid(g_min, g_max, g_nums);
+                    q.SetData(ones(size(next_state{1})) .* -obj.nearInf);
+                    q.SetDataAtReal(goal, val_at_goal);
+                end
+                
                 q_fun(num2str(u_i)) = q;
             end
         end
@@ -482,14 +540,16 @@ classdef MDPHumanSGD3D < handle
         %% Mask over states for each control denoting if that control 
         %  is sufficiently likely at this state. 
         function likelyMasks = getLikelyMasks(obj, z)
-            
-            % TODO: for now, all actions likely at all states!
-            
             likelyMasks = containers.Map;
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
-                one_arr = ones(size(z{1})); % hack!
-                mask = (one_arr == 1);
+
+                % We want to choose controls such that:
+                %   U = {u : P(u | x, theta = trueTheta) > delta}
+                putheta = obj.pugivenxtheta(u_i, z);
+                mask = (putheta > obj.uThresh);
+                mask = mask * 1.0;
+                mask(mask==0) = nan;
                 likelyMasks(num2str(u_i)) = mask;
             end
         end
@@ -523,18 +583,13 @@ classdef MDPHumanSGD3D < handle
             
             % plot obstacle.
             if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                        
-                    x_min = obs_min(1);
-                    y_min = obs_min(2);
-                    p_min = 1;
-                    l = [obs_info(3), ...
-                        obs_info(4), ...
-                        9];
-                    plotcube(l,[x_min y_min p_min], .5, [1 1 1]);
-                end
+                % Visualize black and white 
+%                 bandw_cmap = [1,1,1;0,0,0];
+%                 colormap(bandw_cmap)
+                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
+                        obj.reward_info.obstacles.g{2}, ...
+                        obj.reward_info.obstacles.data);
+                set(ph, 'EdgeColor', 'none');
             end
             
             view(0,90);
@@ -609,18 +664,13 @@ classdef MDPHumanSGD3D < handle
       
             % plot obstacle.
             if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    obs_min = obs_info(1:2);
-                        
-                    x_min = obs_min(1);
-                    y_min = obs_min(2);
-                    p_min = 1;
-                    l = [obs_info(3), ...
-                        obs_info(4), ...
-                        9];
-                    plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
-                end
+                % Visualize black and white 
+%                 bandw_cmap = [1,1,1;0,0,0];
+%                 colormap(bandw_cmap)
+                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
+                        obj.reward_info.obstacles.g{2}, ...
+                        obj.reward_info.obstacles.data);
+                set(ph, 'EdgeColor', 'none');
             end
             set(gcf,'color','w');
             xlim([obj.reward_info.g.min(1), obj.reward_info.g.max(1)]);
