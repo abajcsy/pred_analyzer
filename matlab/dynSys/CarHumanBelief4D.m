@@ -123,7 +123,7 @@ classdef CarHumanBelief4D < handle
                 znext{3} = z{3};
             else
                 if u == 3 % FORWARD_CW1
-                    ang_vel = (2*pi/obj.gnums(3))/obj.dt;
+                    ang_vel = (2*pi/obj.gnums(3))/obj.dt; 
                 elseif u == 4 % FORWARD_CCW1
                     ang_vel = -(2*pi/obj.gnums(3))/obj.dt;
                 else
@@ -245,9 +245,9 @@ classdef CarHumanBelief4D < handle
                     grid.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
                     action_cost = grid.data;
                 elseif u_i == 3 || u_i == 4 % FORWARD_CW or FORWARD_CCW 
-                    action_cost = ones(size(next_state{1})) .* -sqrt(2);
+                    action_cost = ones(size(next_state{1})) .* -sqrt(2); %-obj.vel*obj.dt;
                 else % FORWARD
-                    action_cost = ones(size(next_state{1})) .* -1;
+                    action_cost = ones(size(next_state{1})) .* -1; %-obj.vel*obj.dt;
                 end
                 
                 r_i = action_cost + penalty_obstacle + penalty_outside;
@@ -394,6 +394,41 @@ classdef CarHumanBelief4D < handle
             title(strcat("Optimal policy for theta=", num2str(theta_idx),". Color at state => opt control"));
         end
         
+        %% Gets x-y-phi-belief trajectory of optimal path.
+        function z_traj = get_opt_policy_joint_traj(obj, ...
+                zinit, theta_idx, target_b)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                all_q_vals(:,:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 4);
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            
+            zcurr = zinit;
+            z_traj = {};
+            z_traj{end+1} = zcurr;
+            while true
+                % if we reach the target belief. 
+                if (zcurr{4} >= target_b && theta_idx == 1) || ...
+                    (zcurr{4} <= target_b && theta_idx == 2)
+                    break;
+                end
+                xcurr = zcurr(1:3);
+                % get optimal control at this state
+                uopt = uopts.GetDataAtReal(xcurr);
+                % propagate dynamics
+                znext = obj.dynamics(zcurr,uopt);
+                z_traj{end+1} = znext;
+                zcurr = znext;
+            end
+        end
+        
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy_from_x0(obj, xinit, theta_idx)
             q_fun = obj.q_funs{theta_idx};
@@ -502,6 +537,41 @@ classdef CarHumanBelief4D < handle
         function controls = generate_controls_car(obj)
             % u \in {'STOP', 'FORWARD', 'FORWARD_CW1', 'FORWARD_CCW1'}
             controls = {1,2,3,4};
+        end
+        
+        %% Given the previous and the next physical states, 
+        % inverts the dynamics and returns the closest control that was
+        % taken. 
+        function uidx = inv_dyn(obj, xnext, xprev)
+            
+            if all(abs(xnext - xprev) < 1e-04) 
+                % if no change between two states, action is ABSORB
+                uidx = 1; % STOP ACTION
+                return
+            end
+            
+            if all(abs(xnext(3) - xprev(3)) < 1e-04) 
+                % if no change in the angle, action is FORWARD
+                uidx = 2;
+                return;
+            else
+                % determine which of the binned controls is most like the applied one
+                u = (xnext(3) - xprev(3))/obj.dt;
+                fwdccw1 = (2*pi/obj.gnums(3))/obj.dt;
+                uarr = ones(1,2)*u;
+                binned_u = [fwdccw1, -fwdccw1];
+                action_array = [3,4]; % 'FORWARD_CW1', 'FORWARD_CCW1' 
+                
+                % look at difference between the applied control and all binned controls
+                diff = abs(uarr - binned_u);
+                % get the index of min difference
+                [minv, min_idx] = min(diff);
+                
+                % return the binned action that is most similar to the applied control
+                uidx = action_array(min_idx);
+                return; 
+            end
+            
         end
     end
 end

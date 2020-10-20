@@ -3,16 +3,21 @@ close all
 
 %% Load in the data.
 repo = what('pred_analyzer');
-data_path = strcat(repo.path, '/matlab/data/');
+data_path = strcat(repo.path, '/matlab/data/exp1/');
 
 % --- final data --- %
+% === *Deceptive* controls === %
 %load(strcat(data_path, 'exp_1_max_uthresh_0.15_theta_2.mat'))
 %load(strcat(data_path, 'exp_1_max_uthresh_0.15_theta_1.mat'))
+ 
+% === Data where the *legible* controls are UN-restricted === %
 %load(strcat(data_path, 'exp_1_min_uthresh_0_theta_1.mat'))
 %load(strcat(data_path, 'exp_1_min_uthresh_0_theta_2.mat'))
 
-%load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_1.mat'))
-load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_2.mat'))
+% === Data where the *legible*& controls are restricted === % 
+% ===           (like the deceptive ctrls)           === %  
+load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_1.mat'))
+%load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_2.mat'))
 % --- final data --- %
 
 
@@ -43,7 +48,8 @@ end
 startColor = [97., 76., 76.]/255.;
 endColorRed = [255., 0., 0.]/255.;
 endColorBlue = [38., 138., 240.]/255.;
-endColorOptRed = [191, 151, 151]/255.;
+startColorOpt = [0.5,0.5,0.5];
+endColorOptRed = [199, 149, 155]/255.; %[191, 151, 151]/255.;
 endColorOptBlue = [112, 156, 219]/255.;
 goalColors = {endColorRed, endColorBlue};
 if params.trueThetaIdx == 1
@@ -55,9 +61,9 @@ else
 end
 
 % colors for goal-optimal controls
-ropt = linspace(startColor(1), endColorOpt(1), length(opt_policy_traj));
-gopt = linspace(startColor(2), endColorOpt(2), length(opt_policy_traj));
-bopt = linspace(startColor(3), endColorOpt(3), length(opt_policy_traj));
+ropt = linspace(startColorOpt(1), endColorOpt(1), length(opt_policy_traj));
+gopt = linspace(startColorOpt(2), endColorOpt(2), length(opt_policy_traj));
+bopt = linspace(startColorOpt(3), endColorOpt(3), length(opt_policy_traj));
 
 % colors for legible/deceptive controls
 traj(:,any(isnan(traj), 1)) = []; % remove any nans
@@ -110,12 +116,13 @@ scattersz = 10;
 %% plot the "optimal policy"
 for i=2:length(opt_policy_traj)
     c = [ropt(i), gopt(i), bopt(i)];
-    plot([opt_policy_traj(1,i-1),opt_policy_traj(1,i)], ...
+    p = plot([opt_policy_traj(1,i-1),opt_policy_traj(1,i)], ...
         [opt_policy_traj(2,i-1),opt_policy_traj(2,i)], ...
         'o-', 'Color', c, ...
         'markerfacecolor', 'w', ...
         'markeredgecolor', c, ...
-        'linewidth', 2);
+        'linewidth', 2.5);
+    p.MarkerSize = 7;
 end
 opt_ttl_txt_x = 1; %opt_traj(1,tte_idx);
 opt_ttl_txt_y = 1; %opt_traj(2,tte_idx);

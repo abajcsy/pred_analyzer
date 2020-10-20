@@ -3,7 +3,7 @@ clf
 close all
 
 %% Load data!
-load('tte_as_fun_of_prior_large.mat')
+load('exp_2_tte_as_fun_of_prior_large.mat')
 
 %% Setup data.
 belief_low_conf_init = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9};

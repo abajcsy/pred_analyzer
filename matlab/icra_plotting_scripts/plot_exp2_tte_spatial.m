@@ -3,8 +3,8 @@ clf
 close all
 
 %% load data.
-%load('tte_spatial_fine_5050.mat');
-load('tte_spatial_fine_1090.mat');
+%load('exp_2_tte_spatial_fine_5050.mat');
+load('exp_2_tte_spatial_fine_1090.mat');
 
 %% Load params. 
 params = exp2_conf_reachability();

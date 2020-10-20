@@ -560,7 +560,7 @@ classdef MDPHumanBelief3D < handle
         end
         
         %% Get earliest time where optimal policy reaches target confidence.
-        function [tte_idx, bfinal] = get_opt_policy_earliest_tte_conf(obj, ...
+        function [tte_idx, bfinal, belief_traj] = get_opt_policy_earliest_tte_conf(obj, ...
                 opt_traj, opt_ctrl_idxs, prior, trueThetaIdx)
             tte_idx = -1;
             belief = prior;
@@ -569,11 +569,14 @@ classdef MDPHumanBelief3D < handle
             if trueThetaIdx == 2
                 target_belief = 0.1; 
             end
+            belief_traj = [];
+            belief_traj(end+1) = prior;
             for i=1:num_states
                 z = {opt_traj(1,i), opt_traj(2,i), belief};
                 uidx = opt_ctrl_idxs(i);
                 u = obj.controls{uidx};
                 belief = obj.belief_update(u,z);
+                belief_traj(end+1) = belief
                 if (trueThetaIdx == 1 && belief >= target_belief) || ...
                     (trueThetaIdx == 2 && belief <= target_belief)
                     tte_idx = i+1;
