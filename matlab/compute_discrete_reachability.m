@@ -28,9 +28,9 @@ params = exp4_gradient();
 % params.dyn_sys.plot_opt_policy(3);
 
 %% Plot optimal control policy starting from initial condition.
-params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
-params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
-params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 3);
+% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
+% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);
+% params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 3);
 
 %% Solve for the discrete-time value function!
 [value_funs, tauOut, extraOuts] = ...
@@ -63,22 +63,22 @@ for i=1:numel(value_funs)
     grid on;
 end
 
-% row_len = 6;
-% figure;
-% for i=1:numel(value_funs)
-%     h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
-%     axis square
-%     [gOut, dataOut] = proj(params.g, value_funs{numel(value_funs)-numel(value_funs)+i}, [0,0,1], 'min');
-%     visSetIm(gOut, dataOut);
-%     xlim([-4,4]);
-%     ylim([-4,4]);
-%     t = title(['t=',num2str((i-1)),' s'], 'Interpreter', 'Latex');
-%     t.FontSize = 18;
-%     grid on;
-% end
+row_len = 6;
+figure;
+for i=1:numel(value_funs)
+    h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
+    axis square
+    [gOut, dataOut] = proj(params.g, value_funs{numel(value_funs)-numel(value_funs)+i}, [0,0,1], 'min');
+    visSetIm(gOut, dataOut);
+    xlim([-4,4]);
+    ylim([-4,4]);
+    t = title(['t=',num2str((i-1)),' s'], 'Interpreter', 'Latex');
+    t.FontSize = 18;
+    grid on;
+end
 
-[gOut, dataOut] = proj(params.g, value_funs{1}, [1,1,0], 'min');
-dataOut
+% [gOut, dataOut] = proj(params.g, value_funs{1}, [1,1,0], 'min');
+% dataOut
 
 %% Find and plot optimal control sequence (if reachable by computed BRS)
 fprintf("Computing opt traj...\n");

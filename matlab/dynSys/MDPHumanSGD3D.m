@@ -8,6 +8,7 @@ classdef MDPHumanSGD3D < handle
         trueTheta       % (float) true human reward weight.
         v_funs          % (cell) Value functions (one entry per theta)
         q_funs          % (cell) Q-functions (one entry per theta)
+        validMasks      % (cell) masks that check if action goes into obstacle or out of grid (for each control)
         reward_info     % (struct) Information for reward function construction
         nearInf         % (float) Very large number which is < Inf 
         has_obs         % (bool) If this environment has obstacles or not.
@@ -104,6 +105,11 @@ classdef MDPHumanSGD3D < handle
             obj.grid3d = grid3d;
             obj.accuracy = accuracy;
             obj.obs_padding = obs_padding;
+            
+            obj.validMasks = cell(1, obj.num_ctrls);
+            for i=1:obj.num_ctrls
+                obj.validMasks{i} = obj.checkValidAction(obj.reward_info.g.xs,obj.controls{i});
+            end
             
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
@@ -302,25 +308,38 @@ classdef MDPHumanSGD3D < handle
         
         %% Computes P(u | x, theta) \propto e^{Q(x,u,theta)}
         function pu = pugivenxtheta(obj, u, z)
+            g_min = obj.reward_info.g.min';
+            g_max = obj.reward_info.g.max';
+            g_nums = obj.reward_info.g.N';
+            
+            grid = Grid(g_min, g_max, g_nums);
+            
             % Find index of this control in set of controls.
             mat_ctrls = reshape(cell2mat(obj.controls), [2,length(obj.controls)]);
             diff = abs(mat_ctrls - u');
             uidx = find(sum(diff,1) < 0.0001);
             
             % Get Q(<all x>, <all y>, u, <all theta>)
-            qfun = squeeze(obj.interp_Qfuns(:,:,uidx,:));
+            q_val = squeeze(obj.interp_Qfuns(:,:,uidx,:));
             %qvals = eval_u(obj.grid3d, qfun, cell2mat(z));
             
             % Return probability of control u given state x and model parameter theta.
-            numerator = exp(qfun);
+            validMask = obj.validMasks{uidx};
+            numerator = exp(q_val) .* validMask;
             denominator = 0;
             for i=1:obj.num_ctrls
-                qfun = squeeze(obj.interp_Qfuns(:,:,i,:));
-                denominator = denominator + exp(qfun);
+                validMask = obj.validMasks{i};
+                q_val = squeeze(obj.interp_Qfuns(:,:,i,:));
+                denominator = denominator + (exp(q_val) .* validMask);
             end
             
             % Returns P(u | <all x>, <all theta>)
             pu = numerator ./ denominator;
+            
+            % For states with zero exp, make them uniformally distributed
+            % across action
+            isInvalid = (denominator == 0);
+            pu(isInvalid) = 1/obj.num_ctrls;
         end
         
         %% Generates the discrete controls for the MDP human. 
@@ -383,6 +402,28 @@ classdef MDPHumanSGD3D < handle
 %                         obs_feature = min(obs_feature, obs_feature_curr);
 %                     end
 %             end
+        end
+        
+        function validAction = checkValidAction(obj,z,u)
+            next_state = obj.physical_dynamics(z, u);
+            g_min = obj.reward_info.g.min';
+            g_max = obj.reward_info.g.max';
+            g_nums = obj.reward_info.g.N';
+            
+            penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                   (next_state{2} < g_min(2)) | ...
+                                   (next_state{1} > g_max(1)) | ...
+                                   (next_state{2} > g_max(2));
+
+            if obj.has_obs
+                penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+            else
+                % if no obstacles, then no penalty for obstacle anywhere. 
+                penalty_obstacle_mask = zeros(size(z{1}));
+            end
+            
+            validAction = ~(penalty_outside_mask==1 | penalty_obstacle_mask<0);
+            validAction = validAction .* 1.0;
         end
         
         %% Computes the Q-function for theta denoted by true_theta_idx 
