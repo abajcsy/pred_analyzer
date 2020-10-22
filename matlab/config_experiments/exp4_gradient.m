@@ -85,9 +85,9 @@ params.vel = 0.6;
 params.dt = gdisc3D(1)/params.vel;
 
 % SGD update step.
-params.alpha = 0.005;%0.01;
+params.alpha = 0.01;%0.01;
 params.accuracy = 'high'; % valid: 'low', 'medium', 'high'
-params.obs_padding = 0.8; % pads the size of the obstacle. 
+params.obs_padding = 3; % pads the size of the obstacle by number of cells 
 
 params.dyn_sys = MDPHumanSGD3D(params.initial_state, ...
                                 params.reward_info, ...

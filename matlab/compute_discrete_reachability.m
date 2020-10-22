@@ -49,7 +49,7 @@ params = exp4_gradient();
 %             params.dt);
 
 %% Visualize Projection of Value Funs
-row_len = 6;
+row_len = 5;
 figure;
 for i=1:numel(value_funs)
     h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
@@ -63,9 +63,14 @@ for i=1:numel(value_funs)
     grid on;
 end
 
-row_len = 6;
+row_len = 5;
 figure;
 for i=1:numel(value_funs)
+    hold on;
+%     ph = pcolor(params.reward_info.obstacles.g{1}, ...
+%                 params.reward_info.obstacles.g{2}, ...
+%                 params.reward_info.obstacles.data);
+%     set(ph, 'EdgeColor', 'none');
     h = subplot(floor(numel(value_funs)/row_len) + 1,row_len,i);
     axis square
     [gOut, dataOut] = proj(params.g, value_funs{numel(value_funs)-numel(value_funs)+i}, [0,0,1], 'min');
@@ -75,6 +80,7 @@ for i=1:numel(value_funs)
     t = title(['t=',num2str((i-1)),' s'], 'Interpreter', 'Latex');
     t.FontSize = 18;
     grid on;
+    hold off;
 end
 
 % [gOut, dataOut] = proj(params.g, value_funs{1}, [1,1,0], 'min');

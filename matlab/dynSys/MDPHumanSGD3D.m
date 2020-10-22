@@ -371,11 +371,13 @@ classdef MDPHumanSGD3D < handle
         % Returns map where key is control and value is grid over physical
         % state space with the obstacle-feature for each (x,y) pair.
         function obs_feature = compute_obs_feature(obj, reward_info)
-            obs_feature = [];
-            obs_feature = reward_info.obstacles.data;
-%             obs_feature(obs_feature<=0) = -obj.nearInf;
-            obs_feature(obs_feature<0) = 0;
-%             obs_feature = -1 .* obs_feature;
+            obs_feature = reward_info.obstacles.data; % val < 0 \implies obs
+            obs_original = reward_info.obstacles.data;
+            obs_padded = -1 .* imdilate(-1 .* reward_info.obstacles.data, eye(obj.obs_padding));
+            
+            obs_feature(obs_feature>=0) = 0;
+            obs_feature(obs_padded<0) = -obj.nearInf;
+            obs_feature(obs_original<0) = -obj.nearInf^2;
 
 %             for oi = 1:length(reward_info.obstacles)
 %                     obs_info = reward_info.obstacles{oi};
