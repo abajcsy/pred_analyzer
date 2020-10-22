@@ -371,13 +371,10 @@ classdef MDPHumanSGD3D < handle
         % Returns map where key is control and value is grid over physical
         % state space with the obstacle-feature for each (x,y) pair.
         function obs_feature = compute_obs_feature(obj, reward_info)
-            obs_feature = reward_info.obstacles.data; % val < 0 \implies obs
-            obs_original = reward_info.obstacles.data;
             obs_padded = -1 .* imdilate(-1 .* reward_info.obstacles.data, eye(obj.obs_padding));
             
-            obs_feature(obs_feature>=0) = 0;
-            obs_feature(obs_padded<0) = -obj.nearInf;
-            obs_feature(obs_original<0) = -obj.nearInf^2;
+            obs_padded(obs_padded>=0) = 0;
+            obs_feature = obs_padded;
 
 %             for oi = 1:length(reward_info.obstacles)
 %                     obs_info = reward_info.obstacles{oi};
@@ -425,6 +422,7 @@ classdef MDPHumanSGD3D < handle
             end
             
             validAction = ~(penalty_outside_mask==1 | penalty_obstacle_mask<0);
+%             validAction = ~(penalty_outside_mask==1);
             validAction = validAction .* 1.0;
         end
         
@@ -477,7 +475,7 @@ classdef MDPHumanSGD3D < handle
                 %   agent outside of the grid and = 0 else.
                 %r_i = obj.w1 .* phi_g + w2 .* phi_o;
                 r_i = (1-w2) .* phi_g + w2 .* phi_o;
-                r_i(penalty_outside_mask==1 | penalty_obstacle_mask<0) = -1 .* obj.nearInf;
+                r_i(penalty_outside_mask==1) = -1 .* obj.nearInf;
                 
                 if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
                     grid = Grid(g_min, g_max, g_nums);
@@ -565,7 +563,7 @@ classdef MDPHumanSGD3D < handle
                     penalty_obstacle_mask = zeros(size(state_grid{1}));
                 end
                                    
-                q_i(penalty_outside_mask==1 | penalty_obstacle_mask < 0) = -obj.nearInf; 
+                q_i(penalty_outside_mask==1) = -obj.nearInf; 
                 q.SetData(q_i);
                 
                 if u_i(1)==0 && u_i(2)==0 % Ensure stop action is only equally likely if at goal.
