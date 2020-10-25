@@ -44,6 +44,10 @@ function curr_spline = spline(start, goal, final_t, num_waypts)
     %while (t <= final_t)
     while idx <= num_waypts
         tnorm = t/final_t;
+        
+        if abs(t - 4*0.0716) < 0.001
+            bla = 1;
+        end
 
         % Compute (normalized) parameterized time var p and x,y and time derivatives of each.
         ps(idx)   = a3 * tnorm^3   + b3 * tnorm^2   + c3 * tnorm   + d3;  

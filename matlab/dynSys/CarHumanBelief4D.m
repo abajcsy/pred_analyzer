@@ -395,7 +395,7 @@ classdef CarHumanBelief4D < handle
         end
         
         %% Gets x-y-phi-belief trajectory of optimal path.
-        function z_traj = get_opt_policy_joint_traj(obj, ...
+        function z_traj = get_opt_policy_joint_traj(obj, grid, ...
                 zinit, theta_idx, target_b)
             q_fun = obj.q_funs{theta_idx};
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
@@ -410,7 +410,8 @@ classdef CarHumanBelief4D < handle
                         obj.reward_info.g.N);
             uopts.SetData(opt_u_idxs);
             
-            zcurr = zinit;
+            gridded_zinit = grid.RealToCoords(zinit);
+            zcurr = gridded_zinit;
             z_traj = {};
             z_traj{end+1} = zcurr;
             while true
@@ -424,8 +425,9 @@ classdef CarHumanBelief4D < handle
                 uopt = uopts.GetDataAtReal(xcurr);
                 % propagate dynamics
                 znext = obj.dynamics(zcurr,uopt);
-                z_traj{end+1} = znext;
-                zcurr = znext;
+                gridded_znext = grid.RealToCoords(znext); 
+                z_traj{end+1} = gridded_znext;
+                zcurr = gridded_znext;
             end
         end
         
@@ -570,8 +572,7 @@ classdef CarHumanBelief4D < handle
                 % return the binned action that is most similar to the applied control
                 uidx = action_array(min_idx);
                 return; 
-            end
-            
+            end 
         end
     end
 end

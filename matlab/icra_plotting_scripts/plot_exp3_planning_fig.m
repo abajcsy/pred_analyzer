@@ -12,17 +12,19 @@ if strcmp(planner_type, 'safe')
 elseif strcmp(planner_type, 'heuristic')
     load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
 elseif strcmp(planner_type, 'maxttl')
-    load('exp_3_contingency_planner_uthresh0.33.mat');
+    %load('exp_3_contingency_planner_uthresh0.33.mat');
+    load('complex_exp_3_contingency_planner_uthresh0.4.mat');
 else
     error('unsupported planner type');
 end
 
 %% Colors.
-g1_color = [184, 0, 18]/255.; %[255, 36, 36]/255.;
-g2_color = [0, 116, 184]/255.; %[36, 135, 255]/255.;
+g1_color = [255, 0, 20]/255.; %[255, 36, 36]/255.; %[184, 0, 18]/255.; 
+g2_color = [36, 135, 255]/255.; % [0, 116, 184]/255.; 
 green_c = [75, 148, 95]/255.;
-bg_color = [0.6,0.6,0.6];
+bg_color = [0.2,0.2,0.2]; % [0.6,0.6,0.6];
 orange_c = [1,0.5,0];
+safe_color = [1,1,1];
 
 %% Choose which experiment to visualize
 % ri = 1, hi = 1, pgi = 1, gi = 1
@@ -53,8 +55,8 @@ qrg = quiver(robot_params.goal(1), ...
             sin(robot_params.goal(3)), 1, 'filled');
 qrg.Marker = 'o';
 qrg.MarkerFaceColor = bg_color;
-qrg.MarkerEdgeColor = 'k';
-qrg.Color = 'k';
+qrg.MarkerEdgeColor = safe_color;
+qrg.Color = safe_color;
 qrg.LineWidth = 1.5;
 
 % plot human goal g1.
@@ -107,7 +109,7 @@ end
 
 %% Plot human preds
 new_num_waypts = 20;
-g1_start_c = [255, 133, 144]/255.;
+g1_start_c = [255, 105, 117]/255.;
 g1_end_c = g1_color;
 g1_traj_c = create_color_arr(g1_start_c, g1_end_c, new_num_waypts);
 
@@ -148,7 +150,7 @@ if strcmp(planner_type, 'safe')
     
     % Setup colors for robot traj.
     start_c = [120, 120, 120]/255.;
-    end_c = [0, 0, 0]/255.;
+    end_c = safe_color;
     safe_traj_c = create_color_arr(start_c, end_c, new_num_waypts);
     
     for ti=2:new_num_waypts
@@ -166,9 +168,9 @@ if strcmp(planner_type, 'safe')
              cos(r_plan{5}(future_t_idx)), ...
              sin(r_plan{5}(future_t_idx)), 1, 'filled');
     rsh.Marker = 'o';
-    rsh.MarkerFaceColor = 'k';
-    rsh.MarkerEdgeColor = 'k';
-    rsh.Color = 'k';
+    rsh.MarkerFaceColor = safe_color;
+    rsh.MarkerEdgeColor = safe_color;
+    rsh.Color = safe_color;
     rsh.LineWidth = 2;
 
 %     % Plot the body of the robot car. 
@@ -204,7 +206,7 @@ else
     
     % Setup colors for robot traj.
     start_c = [120, 120, 120]/255.;
-    end_c = [0, 0, 0]/255.;
+    end_c = safe_color;
     safe_traj_c = create_color_arr(start_c, end_c, num_shared_pts);
     
     for ti=2:num_shared_pts
@@ -277,9 +279,9 @@ else
                  cos(r_traj(future_t_idx, 3)), ...
                  sin(r_traj(future_t_idx, 3)), 1, 'filled');
     rsh.Marker = 'o';
-    rsh.MarkerFaceColor = 'k';
-    rsh.MarkerEdgeColor = 'k';
-    rsh.Color = 'k';
+    rsh.MarkerFaceColor = safe_color;
+    rsh.MarkerEdgeColor = safe_color;
+    rsh.Color = safe_color;
     rsh.LineWidth = 2;
     
 %     % Plot the body of the robot car. 
@@ -321,7 +323,7 @@ plot([4.5, robot_params.gmax(1)], [0,0], '--y', 'color', lane_c,'linewidth', 4);
 plot([0,0], [robot_params.gmin(2), -4.5], '--y', 'color', lane_c,'linewidth', 4);
 plot([0,0], [4.5, robot_params.gmax(2)], '--y', 'color', lane_c,'linewidth', 4);
 set(gcf, 'color', 'w')
-set(gcf, 'position', [0,0,600,600])
+set(gcf, 'position', [0,0,900,900])
 box on
 set(gca,'xtick',[])
 set(gca,'xticklabel',[])

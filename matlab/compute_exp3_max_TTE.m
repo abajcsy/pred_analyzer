@@ -40,6 +40,24 @@ else
     
     load('max_tte_g1_uth0.25.mat');
     %load('max_tte_g2_uth0.25.mat');
+    
+%     figure
+%     grid = Grid(params.gmin, params.gmax, params.gnums);
+%     g3d = createGrid(params.gmin(1:3), params.gmax(1:3), [params.gnums(1:2), 30], 3);
+%     for i=1:params.dyn_sys.num_ctrls
+%         clf
+%         hold on
+%         quiver(params.initial_state{1}, params.initial_state{2}, cos(params.initial_state{3}), sin(params.initial_state{3}), 'k');
+%         ui = params.dyn_sys.controls{i};
+%         znext = params.dyn_sys.physical_dynamics(params.initial_state, ui);
+%         %znext_bin = eval_u(g3d, g3d.xs, [znext{1}, znext{2}, znext{3}], 'nearest');
+%         %znext_bin = {znext_bin(1), znext_bin(2), znext_bin(3)};
+%         znext_bin = grid.RealToCoords(znext);
+%         rand_c = [rand, rand, rand];
+%         quiver(znext{1}, znext{2}, cos(znext{3}), sin(znext{3}), 'color', rand_c, 'linewidth', 2)
+%         quiver(znext_bin{1}, znext_bin{2}, cos(znext_bin{3}), sin(znext_bin{3}), 'color', rand_c)
+%         bla = 1;
+%     end
 
     ctrl_names = {'STOP', 'FORWARD', 'FORWARD_CW', 'FORWARD_CCW'};
 
@@ -67,9 +85,9 @@ else
         lower = 1;
         
         % Get the optimal policy trajectory. 
-        z_traj_g1 = params.dyn_sys.get_opt_policy_joint_traj(init_state, ...
+        z_traj_g1 = params.dyn_sys.get_opt_policy_joint_traj(grid, init_state, ...
                                                             1, 0.9);
-        z_traj_g2 = params.dyn_sys.get_opt_policy_joint_traj(init_state, ...
+        z_traj_g2 = params.dyn_sys.get_opt_policy_joint_traj(grid, init_state, ...
                                                             2, 0.1);       
     %     for j=length(tauOut):-1:1
     %         data = value_funs{j};

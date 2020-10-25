@@ -25,17 +25,34 @@ all_branch_times = containers.Map();
 
 % % === Branch times for uThresh = 0.25 === %
 % uThresh = 0.25;
-% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(1.247126, 1.514368);
-% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(1.247126, 1.603448);
+% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(1.247126, 1.603448);
+% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(1.247126, 1.514368);
 % all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.623563, 1.603448);
 % % ======================================= %
 
-% === Branch times for uThresh = 0.33 === %
-uThresh = 0.33;
-all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563, 0.267241);
-all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724, 0.267241);
-all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322, 0.979885);
+% === Branch times for uThresh = 0.27 === %
+uThresh = 0.27;
+all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563, 1.425287);
+all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724, 1.425287);
+all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322, 1.425287);
 % ======================================= %
+
+% === Branch times for uThresh = 0.33 === %
+% this is basically safeguarding against opt policy!
+% uThresh = 0.33;
+% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563, 0.267241);
+% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724, 0.267241);
+% all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322, 0.979885);
+% ======================================= %
+
+
+% % === Branch times for uThresh = 0.4 === %
+% % THIS IS FOR THE FULL, TRUE MODEL!
+% uThresh = 0.35;
+% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(2.5, 2.125);
+% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(1.666667, 2.125);
+% all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(1.333333, 2.125);
+% % ======================================= %
 
 total_num_sims = length(all_r_x0s)*length(all_h_x0s)*length(all_priors);
 sim_idx = 1;
@@ -64,11 +81,22 @@ for ri = 1:length(all_r_x0s)
             human_preds_g2 = ...
                     robot_params.predictor_g2.plan(h_xcurr, robot_params.g2, [], []);   
 
+            %% DEBUGGING!    
+            if sim_idx == 9
+                bla = 1;
+            end
+            %% DEBUGGING!    
+                
             % Plan for the robot!
             robot_plan = ...
                 robot_params.planner.contingency_plan(r_xcurr, robot_params.goal, ...
                                             human_preds_g1, human_preds_g2, pgoals, branch_t);
 
+            %hold on
+            %quiver(robot_plan{1}{1}, robot_plan{1}{2}, cos(robot_plan{1}{5}), sin(robot_plan{1}{5}))
+            %quiver(robot_plan{2}{1}, robot_plan{2}{2}, cos(robot_plan{2}{5}), sin(robot_plan{2}{5}))
+            %quiver(robot_plan{3}{1}, robot_plan{3}{2}, cos(robot_plan{3}{5}), sin(robot_plan{3}{5}))
+                                        
             % Save data!
             all_g1_preds{end+1} = human_preds_g1;
             all_g2_preds{end+1} = human_preds_g2;
@@ -80,7 +108,7 @@ for ri = 1:length(all_r_x0s)
     end
 end
 
-save(strcat('exp_3_contingency_planner_uthresh',num2str(uThresh),'.mat'), ...
+save(strcat('complex_exp_3_contingency_planner_uthresh',num2str(uThresh),'.mat'), ...
         'all_g1_preds', 'all_g2_preds', 'all_plans', ...
         'robot_params', 'all_r_x0s', 'all_h_x0s', 'all_h_goals', ...
         'all_priors', 'all_branch_t');

@@ -1,6 +1,10 @@
 clear all
 close all
 
+load('max_tte_g2_uth0.35_complex_v46.mat');
+belief_updater = params.dyn_sys;
+gnums = params.gnums;
+
 %load('exp_3_heuristic_baseline_trajs_brancht0.5.mat');
 load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
 
@@ -20,7 +24,7 @@ robot_dt = robot_params.dt;
 num_obs_per_dt = floor(robot_dt/measurement_freq);
 
 % Create the belief updater. 
-load('belief_updater.mat');
+%load('belief_updater.mat');
 % gmin = [-7.75, -7.75, 0, 0]; 
 % gmax = [7.75, 7.75, 2*pi, 1]; 
 % gnums = [30, 30, 20, 20];
@@ -66,6 +70,7 @@ for ri = 1:length(all_r_x0s)
 
                 if min_d_to_human < 0
                     fprintf('ri = %d, hi = %d, pgi = %d, gi = %d\n', ri, hi, pgi, gi);
+                    fprintf('sim_idx = %d\n', sim_idx);
                 end
                                                     
                 % Store data.

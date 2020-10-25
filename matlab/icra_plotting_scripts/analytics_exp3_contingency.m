@@ -1,7 +1,46 @@
 clear all
 close all
 
-load('exp_3_contingency_planner_uthresh0.33.mat');
+%load('exp_3_contingency_planner_uthresh0.33.mat');
+load('exp_3_contingency_planner_uthresh0.27.mat');
+
+%load('complex_exp_3_contingency_planner_uthresh0.4.mat');
+
+%load('max_tte_g2_uth0.35_complex_v46.mat');
+%belief_updater = params.dyn_sys;
+%gnums = params.gnums;
+%load('complex_exp_3_contingency_planner_uthresh0.35.mat');
+
+%% SANITY CHECK!
+%  plot the safe trajectories.
+figure(1)
+%hold on
+for i = 1:length(all_plans)
+    clf
+    r_plan = all_plans{i};
+    shared = r_plan{1};
+    branch_g1 = r_plan{2};
+    branch_g2 = r_plan{3};
+    xs_shared = shared{1};
+    ys_shared = shared{2};
+    xs_g1 = branch_g1{1};
+    ys_g1 = branch_g1{2};
+    ths_g1 = branch_g1{5};
+    xs_g2 = branch_g2{1};
+    ys_g2 = branch_g2{2};
+    ths_g2 = branch_g2{5};
+    c = [rand, rand, rand];
+    hold on
+    scatter(xs_shared, ys_shared, 'markeredgecolor', c);
+    scatter(xs_g1, ys_g1, 'markeredgecolor',c);
+    scatter(xs_g2, ys_g2, 'markeredgecolor',c);
+    quiver(xs_g1, ys_g1, cos(ths_g1), sin(ths_g1), 'color', c, 'markeredgecolor',c);
+    quiver(xs_g2, ys_g2, cos(ths_g2), sin(ths_g2), 'color', c, 'markeredgecolor',c);
+    xlim([robot_params.gmin(1), robot_params.gmax(1)]);
+    ylim([robot_params.gmin(2), robot_params.gmax(2)]);
+    hold off
+    bla = 1;
+end
 
 %% Save out important metrics.
 all_d_to_goal_5050 = [];
@@ -29,21 +68,38 @@ load('belief_updater.mat');
 % belief_updater = exp_3_belief_updater(gmin, gmax, gnums, ...
 %                                         thetas, robot_params.max_linear_vel, ...
 %                                         dt);
+% % === Branch times for uThresh = 0.33 === %
+% all_branch_times = containers.Map();
+% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563, 0.267241);
+% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724, 0.267241);
+% all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322, 0.979885);
+% % ======================================= %
+
+% % === Branch times for uThresh = 0.25 === %
+% uThresh = 0.25;
+% all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(1.247126, 1.603448);
+% all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(1.247126, 1.514368);
+% all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.623563, 1.603448);
+% % ======================================= %
+
+% === Branch times for uThresh = 0.27 === %
+uThresh = 0.27;
 all_branch_times = containers.Map();
-all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563, 0.267241);
-all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724, 0.267241);
-all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322, 0.979885);
+all_branch_times(num2str([6, 1.83, pi, 0.2])) = max(0.623563-measurement_freq, 1.425287-measurement_freq);
+all_branch_times(num2str([6, 1.83, pi, 0.5])) = max(0.801724-measurement_freq, 1.425287-measurement_freq);
+all_branch_times(num2str([6, 1.83, pi, 0.8])) = max(0.356322-measurement_freq, 1.425287-measurement_freq);
+% ======================================= %
 
 sim_idx = 1;
 for ri = 1:length(all_r_x0s)
     for hi = 1:length(all_h_x0s)
-        for pi = 1:length(all_priors)
+        for pgi = 1:length(all_priors)
             for gi=1:length(all_h_goals)
                 goal = all_h_goals{gi};
                 g1_preds = all_g1_preds{sim_idx};
                 g2_preds = all_g2_preds{sim_idx};
                 r_plan = all_plans{sim_idx};
-                pgoals = all_priors{pi};     
+                pgoals = all_priors{pgi};     
                 
                 if strcmp(goal, 'g1')
                     human_traj = g1_preds;
@@ -142,28 +198,6 @@ fprintf('--> average (min) distance to human: %f (m)\n', avg_d_to_h_incorrect);
 fprintf('    stdev (min) distance to human: %f (m)\n', std_d_to_h_incorrect);
 fprintf('=======================================\n');
 
-%% SANITY CHECK!
-%  plot the safe trajectories.
-figure(1)
-hold on
-for i = 1:length(all_plans)
-    r_plan = all_plans{i};
-    shared = r_plan{1};
-    branch_g1 = r_plan{2};
-    branch_g2 = r_plan{3};
-    xs_shared = shared{1};
-    ys_shared = shared{2};
-    xs_g1 = branch_g1{1};
-    ys_g1 = branch_g1{2};
-    xs_g2 = branch_g2{1};
-    ys_g2 = branch_g2{2};
-    c = [rand, rand, rand];
-    scatter(xs_shared, ys_shared, 'markeredgecolor', c);
-    scatter(xs_g1, ys_g1, 'markeredgecolor',c);
-    scatter(xs_g2, ys_g2, 'markeredgecolor',c);
-end
-xlim([robot_params.gmin(1), robot_params.gmax(1)]);
-ylim([robot_params.gmin(2), robot_params.gmax(2)]);
 
 %% Computes minimum distance between the hunan and robot trajectory.
 function min_d = min_d_between_r_and_h(human_traj, robot_traj, car_rad, max_gidx)

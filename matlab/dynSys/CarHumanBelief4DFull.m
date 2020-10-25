@@ -18,11 +18,11 @@ classdef CarHumanBelief4DFull < handle
         beta            % (float) beta \in [0, inf) which governs variance of likelihood model. 
         gnums           % (arr) number of discrete X, Y, Phi values.
         v_range         % (arr) contains array of linear velocities (excluding zero velocity which is automatically added).
-        angular_range    % (arr) contains array of angular velocities.
+        angular_range   % (arr) contains array of angular velocities.
         dt              % (float) time discretization
         gdisc           % (arr) discretization resolution in x,y,phi,b(th=1)
         b_range         % (arr) range of belief values to clip to.
-
+        likelyMasks     % (map)
     end
     
     methods
@@ -71,8 +71,9 @@ classdef CarHumanBelief4DFull < handle
             obj.z0 = z0;
             obj.uThresh = uThresh;
             obj.trueThetaIdx = trueThetaIdx;
-            obj.nearInf = 1000000000.0;
+            obj.nearInf = 1000.0; %1000000000.0;
             obj.v_funs = cell(1,numel(reward_info.thetas));
+            obj.thetas = reward_info.thetas;
             obj.q_funs = cell(1,numel(reward_info.thetas));
             obj.reward_info = reward_info;
             obj.beta = beta;
@@ -118,7 +119,13 @@ classdef CarHumanBelief4DFull < handle
         
         %% Dyanmics of physical states.
         function znext = physical_dynamics(obj, z, u)
-            % u \in {'STOP', 'FORWARD', 'FORWARD_CW1', 'FORWARD_CCW1'}
+            % u \in {'STOP', 
+            %        'SLOW_FWD_CCW', 
+            %        'SLOW_FWD', 
+            %        'SLOW_FWD_CW', 
+            %        'FAST_FWD_CCW', 
+            %        'FAST_FWD', 
+            %        'FAST_FWD_CW'}
             
             znext = cell(3);
             
@@ -170,6 +177,8 @@ classdef CarHumanBelief4DFull < handle
                 mask(mask==0) = nan;
                 likelyMasks(num2str(u_i)) = mask;
             end
+            % save out.
+            obj.likelyMasks = likelyMasks;
         end
         
         %% Computes P(u | x, theta) \propto e^{beta * Q(x,u,theta)}
@@ -249,14 +258,25 @@ classdef CarHumanBelief4DFull < handle
                 % action costs
                 ctrl = obj.controls_phys{u_i};
                 if ctrl(1) == 0 % STOP ACTION
+                    %g3d = createGrid(g_min, g_max, g_nums, 3);
                     grid = Grid(g_min, g_max, g_nums);
                     grid.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
+                    % Set reward at goal == 0.
                     grid.SetDataAtReal(obj.reward_info.thetas{true_theta_idx}, 0);
+                    
+                    %stop_penalty = ones(size(next_state{1})) .* -obj.nearInf;
+                    % Set reward at goal == 0.
+                    
                     action_cost = grid.data;
                 elseif ctrl(2) ~= 0 % FORWARD_CW or FORWARD_CCW
-                    action_cost = ones(size(next_state{1})) .* -sqrt(2);
+                    abs_ang_vel = abs(ctrl(2))/obj.gnums(3)/obj.dt;
+                    abs_lin_vel = abs(ctrl(1));
+                    mult = abs_lin_vel/obj.v_range(end);
+                    action_cost = ones(size(next_state{1})) .* -mult*sqrt(2); %-(abs_lin_vel*abs_ang_vel)*obj.dt;
                 else % FORWARD
-                    action_cost = ones(size(next_state{1})) .* -1;
+                    abs_lin_vel = abs(ctrl(1));
+                    mult = abs_lin_vel/obj.v_range(end);
+                    action_cost = ones(size(next_state{1})) .* -mult; %-abs_lin_vel*obj.dt;
                 end
                 
                 r_i = action_cost + penalty_obstacle + penalty_outside;
@@ -265,14 +285,24 @@ classdef CarHumanBelief4DFull < handle
             
             % Compute value function
             v_fun_prev = zeros(g_nums); 
+            % v1:
+            %v_grid = createGrid(g_min, g_max, g_nums, 3); 
+            % v2:
             v_grid = Grid(g_min, g_max, g_nums);
             while true
+                % v1:
+                % v_grid.xs = v_fun_prev;
+                % v2: 
                 v_grid.SetData(v_fun_prev);
                 possible_vals = zeros([g_nums, numel(obj.controls)]);
                 for i=1:numel(obj.controls)
                     u_i = obj.controls{i};
                     next_state = obj.physical_dynamics(state_grid, u_i);
+                    % v2: 
                     v_next = v_grid.GetDataAtReal(next_state);
+                    % v1: 
+                    % v_next = eval_u(v_grid, v_grid.xs, [next_state{1}(:), next_state{2}(:), next_state{3}(:)], 'nearest');
+                    % v_next = reshape(v_next, v_grid.shape);
                     possible_vals(:,:,:,i) = r_fun(num2str(u_i)) + (gamma .* v_next);
                 end
                 v_fun = max(possible_vals, [], 4);
@@ -358,6 +388,120 @@ classdef CarHumanBelief4DFull < handle
             end
         end
         
+        %% Gets x-y-phi-belief trajectory of optimal path.
+        function z_traj = get_opt_policy_joint_traj(obj, grid, ...
+                zinit, theta_idx, target_b)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                all_q_vals(:,:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 4);
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            
+            gridded_zinit = grid.RealToCoords(zinit);
+            zcurr = gridded_zinit;
+            z_traj = {};
+            z_traj{end+1} = zcurr;
+            while true
+                hold on
+                %quiver(zcurr{1}, zcurr{2}, cos(zcurr{3}), sin(zcurr{3}));
+                scatter3(zcurr{1}, zcurr{2}, zcurr{4});
+                % if we reach the target belief. 
+                if (zcurr{4} >= target_b && theta_idx == 1) || ...
+                    (zcurr{4} <= target_b && theta_idx == 2)
+                    break;
+                end
+                xcurr = zcurr(1:3);
+                % get optimal control at this state
+                uopt = uopts.GetDataAtReal(xcurr);
+                % propagate dynamics
+                znext = obj.dynamics(zcurr,uopt);
+                gridded_znext = grid.RealToCoords(znext); 
+                z_traj{end+1} = gridded_znext;
+                zcurr = gridded_znext;
+            end
+        end
+
+        %% Given the previous and the next physical states, 
+        % inverts the dynamics and returns the closest control that was
+        % taken. 
+        function uidx = inv_dyn(obj, xnext, xprev)
+            % u \in {'STOP',            1
+            %        'SLOW_FWD_CCW',    2
+            %        'SLOW_FWD',        3
+            %        'SLOW_FWD_CW',     4
+            %        'FAST_FWD_CCW',    5
+            %        'FAST_FWD',        6
+            %        'FAST_FWD_CW'}     7
+            
+            if all(abs(xnext - xprev) < 1e-04) 
+                % if no change between two states, action is ABSORB
+                uidx = 1; % STOP ACTION
+                return
+            end
+            
+            if all(abs(xnext(3) - xprev(3)) < 1e-04) 
+                % if no change in the angle, action is FORWARD
+                dx = abs(xnext(1) - xprev(1))/obj.dt;
+                dy = abs(xnext(2) - xprev(2))/obj.dt;
+                dpos = max(dx, dy);
+                diff_vlow = abs(dpos - obj.v_range(1));
+                diff_vup = abs(dpos - obj.v_range(end));
+                [~, vel_idx] = min([diff_vlow, diff_vup]);
+                if vel_idx == 1
+                    uidx = 3; % 'SLOW_FWD'
+                else
+                    uidx = 6; % 'FAST_FWD'
+                end
+                return;
+            else
+                % determine if slow or fast linear velocity.
+                dx = abs(xnext(1) - xprev(1))/obj.dt;
+                dy = abs(xnext(2) - xprev(2))/obj.dt;
+                dpos = max(dx, dy);
+                diff_vlow = abs(dpos - obj.v_range(1));
+                diff_vup = abs(dpos - obj.v_range(end));
+                [~, vel_idx] = min([diff_vlow, diff_vup]);
+
+                % determine which of the binned controls is most like the applied one
+                u = (xnext(3) - xprev(3))/obj.dt;
+                uarr = ones(1,2)*u;
+                binned_u = [obj.angular_range(1), obj.angular_range(end)];
+                %action_array = [2,4,5,7]; % 'SLOW_FWD_CCW', 'SLOW_FWD_CW', 'FAST_FWD_CCW', 'FAST_FWD_CW'
+                
+                % look at difference between the applied control and all binned controls
+                diff = abs(uarr - binned_u);
+                % get the index of min difference
+                [~, ang_idx] = min(diff);
+                if ang_idx == 1
+                    % CW
+                    if vel_idx == 1
+                        %slow!
+                        uidx = 4;
+                    else
+                        %fast!
+                        uidx = 7;
+                    end
+                else
+                    % CCW
+                    if vel_idx == 1
+                        %slow!
+                        uidx = 2;
+                    else
+                        %fast!
+                        uidx = 5;
+                    end
+                end
+                return; 
+            end 
+        end        
+        
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
             q_fun = obj.q_funs{theta_idx};
@@ -431,7 +575,17 @@ classdef CarHumanBelief4DFull < handle
                         obj.reward_info.g.N);
             uopts.SetData(opt_u_idxs);
             xcurr = xinit;
-            for t=1:20
+            true_goal_cell = obj.reward_info.thetas{theta_idx};
+            true_goal = [true_goal_cell{1}, true_goal_cell{2}];
+            d_to_goal = norm([xcurr{1}, xcurr{2}] - true_goal);
+            eps = 0.4;
+            iter = 1;
+            while d_to_goal >= eps 
+                if iter > 80
+                    break;
+                end
+                xcurr = uopts.RealToCoords(xcurr);
+                
                 % plot the current state.
                 quiver(xcurr{1}, ...
                         xcurr{2}, ...
@@ -445,6 +599,8 @@ classdef CarHumanBelief4DFull < handle
                 % get optimal control at this state
                 uopt = uopts.GetDataAtReal(xcurr);
                 xcurr = obj.physical_dynamics(xcurr, uopt);
+                d_to_goal = norm([xcurr{1}, xcurr{2}] - true_goal);
+                iter = iter + 1;
             end 
             
             % Goal colors.

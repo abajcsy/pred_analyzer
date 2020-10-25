@@ -103,13 +103,13 @@ while iter < tauLength
         traj(:,iter) = z;
     end
     
-    % CHECK if the state has reached the target set! If it has, break.
-    z_lin_idx = grid.RealToIdx(z);
-    target_set = value_funs{end};
-    vz = target_set(z_lin_idx{1});
-    if vz < small
-      break
-    end
+%     % CHECK if the state has reached the target set! If it has, break.
+%     z_lin_idx = grid.RealToIdx(z);
+%     target_set = value_funs{end};
+%     vz = target_set(z_lin_idx{1});
+%     if vz < small
+%       break
+%     end
 end
 
 % Extract relevant times.

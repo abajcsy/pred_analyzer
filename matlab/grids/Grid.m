@@ -30,7 +30,7 @@ classdef Grid < handle
             
             [~, dims] = size(obj.gnums);
             grid_els = cell(1, dims);
-            parfor dim=1:dims
+            for dim=1:dims
                 grid_els{dim} = obj.gmin(dim):obj.gdisc(dim):obj.gmax(dim);
             end
             g = cell(1,numel(grid_els));

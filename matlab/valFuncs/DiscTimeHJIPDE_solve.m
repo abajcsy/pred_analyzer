@@ -104,6 +104,9 @@ for ui=1:num_ctrls
     next_state_cache(num2str(u)) = next_state;
 end
 
+extraOuts.likelyMasks = likelyMasks;
+extraOuts.next_state_cache = next_state_cache;
+
 % (Benchmarking) Timer for the overall computation.
 overallStart = tic;
 

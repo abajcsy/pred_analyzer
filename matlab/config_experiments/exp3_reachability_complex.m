@@ -1,15 +1,16 @@
-function params = exp3_reachability()
+function params = exp3_reachability_complex()
 
 %% Grid setup
 params.gmin = [-7.75, -7.75, 0, 0]; 
 params.gmax = [7.75, 7.75, 2*pi, 1]; 
-params.gnums = [30, 30, 20, 20];
-params.g = createGrid(params.gmin, params.gmax, params.gnums);
+params.gnums = [35, 35, 17, 20]; %[40, 40, 17, 20]; 
+pdDims = 3;
+params.g = createGrid(params.gmin, params.gmax, params.gnums, pdDims);
 params.bdims = {4}; % dimension(s) which contain the belief
 
 %% Control Policy Parameterization Info.
 params.thetas = {[-6.5, 1.83, pi], [-1.83, -6.5, 3*pi/2]};
-params.trueThetaIdx = 1;
+params.trueThetaIdx = 2;
 
 %% Target Set Setup
 if params.trueThetaIdx == 1
@@ -37,12 +38,12 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 20;
+num_timesteps = 35;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "max"; % min or max
-params.uThresh = 0.25; % 0.33; % 0.258812 threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.25; % threshold on P(u | x, g)
 
 %% Plotting?
 params.plot = true;        % Visualize the BRS and the optimal trajectory?
@@ -80,29 +81,33 @@ params.initial_state = {6, 1.83, pi, 0.5};
 %              [6, 1.83, pi, 0.9]}     
 
 % Params for Value Iteration. 
-params.gamma = 0.98; 
+params.gamma = 0.9; % 0.98
 params.eps = 0.01;
 
 % Variance on likelihood model: 
 %   beta = 0 --> uniform dist, 
 %   beta = 1 --> default 
 %   beta = inf --> dirac delta on opt action)
-params.beta = 1;
+params.beta = 2; % need peakier dist to disambiguate controls.
 
 % State space discretization
 gdisc4D = (params.gmax - params.gmin) ./ (params.gnums - 1);
 
 % dt induced by discretization
 params.vel = 6; % Car's driving speed (m/s)
-params.dt = gdisc4D(1)/params.vel;
-% NOTE: max angular vel here is = 0.8917 rad/s.
+% NOTE THIS IS AN OVERAPPROX OF HOW AGGRESSIVELY THE REAL VEHICLE CAN TURN. 
+% We need *at least* 3.5 rad/sec for the grid to be able to handle this...
+params.max_ang_vel = 3.5; % %1.855; %0.8917; 
+params.v_range = [4, params.vel]; %[params.vel/2, params.vel]; % Car's driving speed (m/s)
+params.angular_range = [-params.max_ang_vel, 0, params.max_ang_vel];
+params.dt = gdisc4D(1)/params.v_range(1); 
 
 % range of belief values
 b_space = linspace(params.gmin(params.bdims{1}),params.gmax(params.bdims{1}),params.gnums(params.bdims{1}));
 params.b_range = [b_space(2) b_space(numel(b_space)-1)];
 
 % MDP human.
-params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
+params.dyn_sys = CarHumanBelief4DFull(params.initial_state, ...
                                     params.reward_info, ...
                                     params.trueThetaIdx, ...
                                     params.uThresh, ...
@@ -111,7 +116,8 @@ params.dyn_sys = CarHumanBelief4D(params.initial_state, ...
                                     params.gamma, ...
                                     params.eps, ...
                                     params.beta, ...
-                                    params.vel, ...
+                                    params.v_range, ...
+                                    params.angular_range, ...
                                     params.dt, ...
                                     params.b_range);
          

@@ -16,6 +16,7 @@ classdef DrivingContingencyPlanner < handle
         disc_xy
         disc_xyth
         disc_xythvel
+        smaller_disc_xythvel
         gmin
         gmax
         gnums
@@ -25,6 +26,7 @@ classdef DrivingContingencyPlanner < handle
         dt
         belief
         circle_rad
+        
     end
     
     methods
@@ -70,10 +72,15 @@ classdef DrivingContingencyPlanner < handle
                              obj.g3d.min(2):obj.g3d.dx(2):obj.g3d.max(2), ...
                              obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
                              0.01:dv:obj.max_linear_vel); 
-                             %-obj.max_linear_vel:dv:obj.max_linear_vel);             
+                             %-obj.max_linear_vel:dv:obj.max_linear_vel);  
+            [XS, YS, THS, VS] = ndgrid(-3.65:obj.g3d.dx(1):0, ...
+                                     -3.65:obj.g3d.dx(2):3.65, ...
+                                     obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
+                                     0.01:dv:obj.max_linear_vel);              
             obj.disc_xy = [X2D(:), Y2D(:)];
             obj.disc_xyth = [X3D(:), Y3D(:), TH3D(:)];
             obj.disc_xythvel = [X(:), Y(:), TH(:), V(:)];
+            obj.smaller_disc_xythvel = [XS(:), YS(:), THS(:), VS(:)];
         end
         
         %% Helper function which pre-computes all shared goals
@@ -82,7 +89,9 @@ classdef DrivingContingencyPlanner < handle
         function dyn_feas_xythvel = ...
                 find_dyn_feas_shared_goal(obj, start, horiz, num_waypts)
             dyn_feas_xythvel = [];
+            %for i=1:length(obj.smaller_disc_xythvel) 
             for i=1:length(obj.disc_xythvel)
+                %candidate_goal = obj.smaller_disc_xythvel(i,:); 
                 candidate_goal = obj.disc_xythvel(i,:);
                 curr_spline = ...
                     spline(start, candidate_goal, horiz, num_waypts);
@@ -200,22 +209,22 @@ classdef DrivingContingencyPlanner < handle
                     obj.compute_dyn_feasible_horizon(total_spline1, ...
                                                   obj.max_linear_vel, ...
                                                   obj.max_angular_vel, ...
-                                                  binned_horiz);
+                                                  binned_horiz-binned_branch_t);
                 feasible_horizon2 = ...
                     obj.compute_dyn_feasible_horizon(total_spline2, ...
                                                   obj.max_linear_vel, ...
                                                   obj.max_angular_vel, ...
-                                                  binned_horiz);  
+                                                  binned_horiz-binned_branch_t);  
                                               
                 % If total plan for each contingency plan is dynamically
                 % feasible, then evaluate reward. 
-                if (feasible_horizon1 <= obj.horizon && ...
-                        feasible_horizon2 <= obj.horizon)
+                if (feasible_horizon1 <= binned_horiz && ...
+                        feasible_horizon2 <= binned_horiz)
                     
                     % Get reward of each trajectory segment
                     reward_shared = obj.eval_reward(shared_spline, 'all', 0, binned_branch_t);
-                    reward_g1 = obj.eval_reward(spline_g1, 'g1', binned_branch_t, obj.horizon);
-                    reward_g2 = obj.eval_reward(spline_g2, 'g2', binned_branch_t, obj.horizon);
+                    reward_g1 = obj.eval_reward(spline_g1, 'g1', binned_branch_t, binned_horiz);
+                    reward_g2 = obj.eval_reward(spline_g2, 'g2', binned_branch_t, binned_horiz);
                     
                     % Compute total reward where we weight the reward
                     % contribution of contingency plans based on the
@@ -226,16 +235,22 @@ classdef DrivingContingencyPlanner < handle
                     reward = reward_shared + ...
                              obj.belief(1) * reward_g1 + ...
                              obj.belief(2) * reward_g2;
-                    
-%                     hold on
-%                     plot(shared_spline{1}, shared_spline{2}, 'r');
-%                     plot(spline_g1{1}, spline_g1{2}, 'y');
-%                     plot(spline_g2{1}, spline_g2{2}, 'b');
-%                     xlim([-6.5,6.5]);
-%                     ylim([-6.5,6.5]);
-%                     grid on
                         
                     if (reward > opt_reward)
+                        if i == 150
+                            hold on
+                            plot(shared_spline{1}, shared_spline{2}, 'r');
+                            plot(spline_g1{1}, spline_g1{2}, 'y');
+                            plot(spline_g2{1}, spline_g2{2}, 'b');
+                            xlim([-6.5,6.5]);
+                            ylim([-6.5,6.5]);
+                            grid on
+                            f = obj.compute_dyn_feasible_horizon(spline_g2, ...
+                                                            obj.max_linear_vel, ...
+                                                            obj.max_angular_vel, ...
+                                                            binned_horiz-binned_branch_t);
+                        end
+
                         opt_reward = reward;
                         opt_plan = {shared_spline, spline_g1, spline_g2};
                     end
@@ -363,13 +378,36 @@ classdef DrivingContingencyPlanner < handle
         
         %% Computes dynamically feasible horizon (given dynamics of car).
         function feasible_horizon = ...
-                compute_dyn_feasible_horizon(obj, spline, ...
+                compute_dyn_feasible_horizon(obj, curr_spline, ...
                                               max_linear_vel, ...
                                               max_angular_vel, ...
                                               final_t)
+                                          
+              % NOTE: here we upsample the spline to make sure 
+              % we catch dynamic infeasibility!!   
+              %curr_start = [curr_spline{1}(1), curr_spline{2}(1), ...
+              %               curr_spline{5}(1), curr_spline{3}(1)];
+              %curr_goal = [curr_spline{1}(end), curr_spline{2}(end), ...
+              %              curr_spline{5}(end), curr_spline{3}(end)];
+              
+              % Upsample by 3x. 
+              %upsamp_waypts = (length(curr_spline{1})-1)*2 + 1; 
+              %upsamp_spline = spline(curr_start, curr_goal, final_t, upsamp_waypts);
+              %original_spline = spline(curr_start, curr_goal, final_t, length(curr_spline{1}));
+              
+              % Quick n dirty hack. 
+              angles = curr_spline{5};
+              ang_vel_approx = (angles(2:end) - angles(1:end-1)) ./ obj.dt;
+              
               % Compute max linear and angular speed.
-              plan_max_lin_vel = max(spline{3});
-              plan_max_angular_vel = max(abs(spline{4}));
+              plan_max_lin_vel = max(curr_spline{3});
+              plan_max_angular_vel = max(abs(curr_spline{4}));
+              
+              max_ang_vel_approx = max(abs(ang_vel_approx));
+              
+              if max_ang_vel_approx > max_angular_vel
+                  plan_max_angular_vel = max_ang_vel_approx;
+              end
               
               % Compute required horizon to acheive max speed of planned spline.
               feasible_horizon_speed = ...
