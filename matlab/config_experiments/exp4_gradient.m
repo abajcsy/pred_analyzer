@@ -14,12 +14,12 @@ params.g_belief = createGrid(params.gmin(params.bdims), ...
 
 %% Time vector
 t0 = 1;
-num_timesteps = 30;
+num_timesteps = 10;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
 params.uMode = "min";       % min or max
-params.uThresh = 0.1;       % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
+params.uThresh = 0.0;       % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = false;         % Visualize the BRS and the optimal trajectory?
@@ -87,7 +87,7 @@ params.dt = gdisc3D(1)/params.vel;
 % SGD update step.
 params.alpha = 0.01;%0.01;
 params.accuracy = 'high'; % valid: 'low', 'medium', 'high'
-params.obs_padding = 0.8; % pads the size of the obstacle. 
+params.obs_padding = 3; % pads the size of the obstacle by number of cells 
 
 params.dyn_sys = MDPHumanSGD3D(params.initial_state, ...
                                 params.reward_info, ...
