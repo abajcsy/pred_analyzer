@@ -433,20 +433,20 @@ classdef CarHumanBelief4DFull < handle
         % taken. 
         function uidx = inv_dyn(obj, xnext, xprev)
             % u \in {'STOP',            1
-            %        'SLOW_FWD_CCW',    2
+            %        'SLOW_FWD_CW',     2
             %        'SLOW_FWD',        3
-            %        'SLOW_FWD_CW',     4
-            %        'FAST_FWD_CCW',    5
+            %        'SLOW_FWD_CCW',    4
+            %        'FAST_FWD_CW',     5
             %        'FAST_FWD',        6
-            %        'FAST_FWD_CW'}     7
+            %        'FAST_FWD_CCW'}    7
             
-            if all(abs(xnext - xprev) < 1e-04) 
+            if all(abs(xnext - xprev) < 1e-03) 
                 % if no change between two states, action is ABSORB
                 uidx = 1; % STOP ACTION
                 return
             end
             
-            if all(abs(xnext(3) - xprev(3)) < 1e-04) 
+            if wrapToPi(xnext(3) - xprev(3)) < 1e-03 
                 % if no change in the angle, action is FORWARD
                 dx = abs(xnext(1) - xprev(1))/obj.dt;
                 dy = abs(xnext(2) - xprev(2))/obj.dt;
@@ -470,26 +470,17 @@ classdef CarHumanBelief4DFull < handle
                 [~, vel_idx] = min([diff_vlow, diff_vup]);
 
                 % determine which of the binned controls is most like the applied one
-                u = (xnext(3) - xprev(3))/obj.dt;
+                u = wrapToPi(xnext(3) - xprev(3))/obj.dt;
                 uarr = ones(1,2)*u;
                 binned_u = [obj.angular_range(1), obj.angular_range(end)];
-                %action_array = [2,4,5,7]; % 'SLOW_FWD_CCW', 'SLOW_FWD_CW', 'FAST_FWD_CCW', 'FAST_FWD_CW'
+                %action_array = [2,4,5,7]; % 'SLOW_FWD_CW', 'SLOW_FWD_CCW', 'FAST_FWD_CW', 'FAST_FWD_CCW'
                 
                 % look at difference between the applied control and all binned controls
                 diff = abs(uarr - binned_u);
                 % get the index of min difference
                 [~, ang_idx] = min(diff);
                 if ang_idx == 1
-                    % CW
-                    if vel_idx == 1
-                        %slow!
-                        uidx = 4;
-                    else
-                        %fast!
-                        uidx = 7;
-                    end
-                else
-                    % CCW
+                    % if angular vel is negative, turning CW
                     if vel_idx == 1
                         %slow!
                         uidx = 2;
@@ -497,10 +488,62 @@ classdef CarHumanBelief4DFull < handle
                         %fast!
                         uidx = 5;
                     end
+                else
+                    % if angular vel is positive, turning CCW
+                    if vel_idx == 1
+                        %slow!
+                        uidx = 4;
+                    else
+                        %fast!
+                        uidx = 7;
+                    end
                 end
                 return; 
             end 
-        end        
+        end    
+        
+        %% Gets the optimal trajectory from the MDP. 
+        function [opt_traj, opt_ctrl] = get_opt_traj(obj, xinit, theta_idx)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                all_q_vals(:,:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 4);
+            
+            
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            xcurr = xinit;
+            
+            opt_traj = {};
+            opt_ctrl = {};
+            opt_traj{end+1} = xcurr;
+            
+            true_goal_cell = obj.reward_info.thetas{theta_idx};
+            true_goal = [true_goal_cell{1}, true_goal_cell{2}];
+            d_to_goal = norm([xcurr{1}, xcurr{2}] - true_goal);
+            eps = 0.4;
+            iter = 1;
+            while d_to_goal >= eps 
+                if iter > 80
+                    break;
+                end
+                xcurr = uopts.RealToCoords(xcurr);
+                
+                % get optimal control at this state
+                uopt = uopts.GetDataAtReal(xcurr);
+                xcurr = obj.physical_dynamics(xcurr, uopt);
+                opt_traj{end+1} = xcurr;
+                opt_ctrl{end+1} = uopt;
+                d_to_goal = norm([xcurr{1}, xcurr{2}] - true_goal);
+                iter = iter + 1;
+            end 
+        end
         
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)

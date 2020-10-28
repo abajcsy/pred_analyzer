@@ -10,10 +10,24 @@ planner_type = 'maxttl';
 if strcmp(planner_type, 'safe')
     load('exp_3_safe_baseline_trajs.mat');
 elseif strcmp(planner_type, 'heuristic')
-    load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
+    %load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
+    
+    % == final data for SIMPLE model branching time with NEW COST FUNCTION == %
+    load('NEWCOSTFUN_exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
+    % ======================================================================= %
+    
 elseif strcmp(planner_type, 'maxttl')
     %load('exp_3_contingency_planner_uthresh0.33.mat');
-    load('complex_exp_3_contingency_planner_uthresh0.4.mat');
+    %load('exp_3_contingency_planner_uthresh0.27.mat');
+    
+    % == final data for SIMPLE model branching time with NEW COST FUNCTION == %
+    load('fine_exp_3_contingency_planner_uthresh0.27.mat');
+    % ======================================================================= %
+    
+    %load('complex_exp_3_contingency_planner_uthresh0.4.mat');
+    %load('NEWCOSTFUN_complex_exp_3_contingency_planner_uthresh0.35.mat');
+    %load('NEWCOSTFUN_LARGE_complex_exp_3_contingency_planner_uthresh0.35.mat');
+    %load('NEWCOSTFUN_LARGE2_complex_exp_3_contingency_planner_uthresh0.35.mat');
 else
     error('unsupported planner type');
 end
@@ -27,10 +41,32 @@ orange_c = [1,0.5,0];
 safe_color = [1,1,1];
 
 %% Choose which experiment to visualize
-% ri = 1, hi = 1, pgi = 1, gi = 1
+%--> ri = 1, hi = 3, pgi = 1, gi = 1
+%--> sim_idx = 7
+%gi = 1;
+%i = 7;
+%pgi = 1;
 
-gi = 1;
-i = 1;
+%--> ri = 1, hi = 1, pgi = 1, gi = 1
+% gi = 1;
+% i = 1;
+% pgi = 1;
+
+%--> ri = 2, hi = 2, pgi = 1, gi = 1
+% ri = 2; hi = 2; pgi = 1; gi = 1;
+% i = 13;
+
+%-->ri = 2, hi = 2, pgi = 1, gi = 1
+% ri = 1; hi = 3; pgi = 2; gi = 2;
+% i = 8;
+
+% ==== NICE EXAMPLE FOR SIMPLE SCENARIO ==== %
+ri = 2; hi = 1; pgi = 1; gi = 1;
+i = 10;
+if strcmp(planner_type, 'safe')
+    i = ri*hi; 
+end
+% ==== NICE EXAMPLE FOR SIMPLE SCENARIO ==== %
 
 goal = all_h_goals{gi};
 g1_preds = all_g1_preds{i};
@@ -192,7 +228,7 @@ else
     shared_spline = r_plan{1};
     g1_spline = r_plan{2};
     g2_spline = r_plan{3};
-    pgoals = all_priors{i};
+    pgoals = all_priors{pgi};
     if strcmp(planner_type, 'maxttl')
         branch_t = all_branch_t{i};
     end

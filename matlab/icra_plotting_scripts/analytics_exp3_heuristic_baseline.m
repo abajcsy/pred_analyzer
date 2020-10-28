@@ -1,12 +1,34 @@
 clear all
 close all
 
-load('max_tte_g2_uth0.35_complex_v46.mat');
-belief_updater = params.dyn_sys;
-gnums = params.gnums;
+%% choose which dynamics model are the results for. 
+% simple
+% complex
+model_type = 'simple';
+
+if strcmp(model_type, 'simple')
+    % Create the belief updater. 
+    load('belief_updater.mat');
+    % gmin = [-7.75, -7.75, 0, 0]; 
+    % gmax = [7.75, 7.75, 2*pi, 1]; 
+    % gnums = [30, 30, 20, 20];
+    % thetas = {[-6.5, 1.83, pi], [-1.83, -6.5, 3*pi/2]};
+    % gdisc = (gmax - gmin) ./ (gnums - 1);
+    % dt = gdisc(1)/robot_params.max_linear_vel;
+    % belief_updater = exp_3_belief_updater(gmin, gmax, gnums, ...
+    %                                         thetas, robot_params.max_linear_vel, ...
+    %                                         dt);
+    measurement_freq = 0.0891;
+else
+    load('max_tte_g2_uth0.35_complex_v46.mat');
+    belief_updater = params.dyn_sys;
+    gnums = params.gnums;
+    measurement_freq = 0.1250; 
+end
 
 %load('exp_3_heuristic_baseline_trajs_brancht0.5.mat');
-load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
+%load('exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
+load('NEWCOSTFUN_exp_3_heuristic_baseline_trajs_brancht0.3265.mat');
 
 %% Save out important metrics.
 all_d_to_goal_5050 = [];
@@ -19,21 +41,8 @@ all_d_to_goal_incorrect = [];
 all_d_to_human_incorrect = [];
 
 % Setup measurement frequency in (s)
-measurement_freq = 0.0891;
 robot_dt = robot_params.dt;
 num_obs_per_dt = floor(robot_dt/measurement_freq);
-
-% Create the belief updater. 
-%load('belief_updater.mat');
-% gmin = [-7.75, -7.75, 0, 0]; 
-% gmax = [7.75, 7.75, 2*pi, 1]; 
-% gnums = [30, 30, 20, 20];
-% thetas = {[-6.5, 1.83, pi], [-1.83, -6.5, 3*pi/2]};
-% gdisc = (gmax - gmin) ./ (gnums - 1);
-% dt = gdisc(1)/robot_params.max_linear_vel;
-% belief_updater = exp_3_belief_updater(gmin, gmax, gnums, ...
-%                                         thetas, robot_params.max_linear_vel, ...
-%                                         dt);
 
 sim_idx = 1;
 for ri = 1:length(all_r_x0s)
@@ -48,16 +57,28 @@ for ri = 1:length(all_r_x0s)
                 
                 if strcmp(goal, 'g1')
                     human_traj = g1_preds;
+                    true_g = 1;
                 else
                     human_traj = g2_preds;
+                    true_g = 2;
                 end
                 
-                % Compute what posterior would be after branch_t timesteps.
-                posterior = compute_posterior(human_traj, pgoals, ...
-                                        robot_params.planner.times, branch_t, ...
-                                        num_obs_per_dt, measurement_freq, ...
+                if strcmp(model_type, 'simple')
+                    % Compute what posterior would be after branch_t timesteps.
+                    posterior = compute_posterior(human_traj, pgoals, ...
+                                            robot_params.planner.times, branch_t, ...
+                                            num_obs_per_dt, measurement_freq, ...
                                         gnums, belief_updater);
-                                    
+                else
+                    % get the optimal policy from the MDP. 
+                    curr_state = {human_traj{1}(1), human_traj{2}(1), human_traj{5}(1)};
+                    [opt_mdp_traj, opt_mdp_ctrls] = belief_updater.get_opt_traj(curr_state, true_g);
+                    % update posterior.
+                    posterior = compute_posterior_mdp(human_traj, pgoals, ...
+                                            robot_params.planner.times, ...
+                                            branch_t, belief_updater, ...
+                                            opt_mdp_traj, opt_mdp_ctrls);
+                end
                 [maxval, max_gidx] = max(posterior);
                 %max_gidx = gi;
                                     
@@ -68,6 +89,12 @@ for ri = 1:length(all_r_x0s)
                 min_d_to_human = min_d_between_r_and_h(human_traj, r_plan, ...
                                                         robot_params.car_rad, max_gidx);
 
+                if max_gidx == true_g              
+                    fprintf('Estimated true goal!\n');
+                else
+                    fprintf('Did *not* estimate true goal!\n');
+                end
+                
                 if min_d_to_human < 0
                     fprintf('ri = %d, hi = %d, pgi = %d, gi = %d\n', ri, hi, pgi, gi);
                     fprintf('sim_idx = %d\n', sim_idx);
@@ -209,6 +236,46 @@ function d_to_goal = d_r_to_goal(robot_traj, goal, max_gidx)
     % only consider spatial dimension for now?
     final_state = [branch_traj{1}(end), branch_traj{2}(end)];
     d_to_goal = norm(final_state - goal(1:2));
+end
+
+%% Compute the belief after branch_t observations.
+function posterior = compute_posterior_mdp(human_traj, prior, times, ...
+                                        branch_t, belief_updater, ...
+                                        opt_mdp_traj, opt_mdp_ctrls)
+    % Compute number of waypoints in each part of the plan.
+    [~,end_idx] = min(abs(times - branch_t));
+    shared_num_waypts = end_idx;
+    
+    % Should we remove the last timestep because at the last timestep we 
+    % need to commit to one of the two branched trajectories?
+    shared_num_waypts = shared_num_waypts-1;
+    
+    total_human_traj_time = times(end);
+    human_dt = times(2) - times(1);
+    total_mdp_time = belief_updater.dt*length(opt_mdp_traj);
+    mdp_dt = belief_updater.dt;
+        
+    % NOTE: THIS ASSUMES WE GET ONE OBSERVATION DURING EACH ROBOT TIMESTEP!
+    posterior = prior;
+    for t=2:shared_num_waypts
+        
+        curr_human_t = human_dt*(t);
+        percent_total_t = curr_human_t/total_human_traj_time;
+        
+        curr_mdp_t = percent_total_t*total_mdp_time;
+        curr_mdp_tidx = round(curr_mdp_t/mdp_dt);
+
+        % Get the action the human took. 
+        h_xcurr = opt_mdp_traj{curr_mdp_tidx};
+        uidx = opt_mdp_ctrls{curr_mdp_tidx};
+        
+        % Create joint state!
+        z = {h_xcurr{1}, h_xcurr{2}, h_xcurr{3}, posterior(1)};
+        
+        % Update posterior!
+        posterior_g1 = belief_updater.belief_update(uidx,z);
+        posterior = [posterior_g1, 1-posterior_g1];
+    end
 end
 
 %% Compute the belief after branch_t observations.

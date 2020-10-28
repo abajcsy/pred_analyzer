@@ -23,13 +23,14 @@ classdef MDPHumanSGD3D < handle
         accuracy        % (string) accuracy of numeric derivatives
         
         obs_padding  % (float) scales up or down the obstacle feature
+        beta         % (float) scales the variance of the distribution. 
     end
     
     methods
         function obj = MDPHumanSGD3D(z0, reward_info, trueTheta, ...
                                         uThresh, gdisc, gamma, ...
                                         eps, alpha, w1, grid3d, ...
-                                        accuracy, obs_padding)
+                                        accuracy, obs_padding, beta)
             % MDPHumanSGD3D 
             %   Represents joint dynamics of a 2D point human 
             %   and an unknown reward parameter. The reward parameter 
@@ -105,6 +106,7 @@ classdef MDPHumanSGD3D < handle
             obj.grid3d = grid3d;
             obj.accuracy = accuracy;
             obj.obs_padding = obs_padding;
+            obj.beta = beta;
             
             obj.validMasks = cell(1, obj.num_ctrls);
             for i=1:obj.num_ctrls
@@ -325,12 +327,12 @@ classdef MDPHumanSGD3D < handle
             
             % Return probability of control u given state x and model parameter theta.
             validMask = obj.validMasks{uidx};
-            numerator = exp(q_val) .* validMask;
+            numerator = exp(obj.beta .* q_val) .* validMask;
             denominator = 0;
             for i=1:obj.num_ctrls
                 validMask = obj.validMasks{i};
                 q_val = squeeze(obj.interp_Qfuns(:,:,i,:));
-                denominator = denominator + (exp(q_val) .* validMask);
+                denominator = denominator + (exp(obj.beta .* q_val) .* validMask);
             end
             
             % Returns P(u | <all x>, <all theta>)
@@ -403,6 +405,7 @@ classdef MDPHumanSGD3D < handle
 %             end
         end
         
+        %% Checks if next state is in an obstacle or outside comp grid. 
         function validAction = checkValidAction(obj,z,u)
             next_state = obj.physical_dynamics(z, u);
             g_min = obj.reward_info.g.min';
@@ -635,6 +638,43 @@ classdef MDPHumanSGD3D < handle
             
             view(0,90);
             title(strcat("Optimal policy for theta=", num2str(theta_idx),". Color at state => opt control"));
+        end
+        
+        %% Gets the optimal trajectory for a specific theta index.
+        function opt_traj = get_opt_traj(obj, xinit, theta_idx)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                
+                likely_ctrls = obj.validMasks{i};
+                unlikely_states = find(likely_ctrls == 0);
+                q_i(unlikely_states) = NaN;
+                
+                all_q_vals(:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            xcurr = xinit;
+            opt_traj = [[xcurr{1};xcurr{2}]];
+            d_to_goal = norm([xcurr{1}; xcurr{2}] - obj.reward_info.goal);
+            iter = 1;
+            while d_to_goal >= eps 
+                if iter > 80
+                    break;
+                end
+                % get optimal control at this state
+                uopt_idx = uopts.GetDataAtReal(xcurr);
+                xcurr = obj.physical_dynamics(xcurr, obj.controls{uopt_idx});
+                opt_traj(:,end+1) = [xcurr{1};xcurr{2}];
+                d_to_goal = norm([xcurr{1}; xcurr{2}] - obj.reward_info.goal);
+                iter = iter + 1;
+            end 
         end
         
         %% Plots optimal policy for the inputted theta. 

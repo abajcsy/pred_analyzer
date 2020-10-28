@@ -3,12 +3,12 @@ function params = exp3_contingency_planner()
 %% Grid representation.
 params.gmin = [-7.75, -7.75]; % should take into accound theta too?
 params.gmax = [7.75, 7.75];
-params.gnums = [15,15];
+params.gnums = [25,25]; % for heuristic: [30,30];, fast maxttl: [10,10] w/17 theta, large maxttl: [15,15] w/ 17 theta
 params.g2d = createGrid(params.gmin, params.gmax, params.gnums);
 
 % 3D grid including orientation
 pdDim = 3;
-ntheta = 17;
+ntheta = 20; % for heuristic: 20
 offset_pi = 0.01;
 params.g3d = createGrid([params.gmin,-pi+offset_pi], [params.gmax,pi], [params.gnums,ntheta], pdDim);
 

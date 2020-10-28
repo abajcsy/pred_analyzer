@@ -72,11 +72,10 @@ classdef DrivingContingencyPlanner < handle
                              obj.g3d.min(2):obj.g3d.dx(2):obj.g3d.max(2), ...
                              obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
                              0.01:dv:obj.max_linear_vel); 
-                             %-obj.max_linear_vel:dv:obj.max_linear_vel);  
-            [XS, YS, THS, VS] = ndgrid(-3.65:obj.g3d.dx(1):0, ...
-                                     -3.65:obj.g3d.dx(2):3.65, ...
+            [XS, YS, THS, VS] = ndgrid(-5.7:obj.g3d.dx(1):3, ...    %-3.65:obj.g3d.dx(1):-1.825, ...
+                                     -3.5:obj.g3d.dx(2):3, ...       %-3.65:obj.g3d.dx(2):0.5, ...
                                      obj.g3d.min(3):obj.g3d.dx(3):obj.g3d.max(3), ...
-                                     0.01:dv:obj.max_linear_vel);              
+                                     1:dv:obj.max_linear_vel);%0.01:dv:obj.max_linear_vel);              
             obj.disc_xy = [X2D(:), Y2D(:)];
             obj.disc_xyth = [X3D(:), Y3D(:), TH3D(:)];
             obj.disc_xythvel = [X(:), Y(:), TH(:), V(:)];
@@ -104,12 +103,14 @@ classdef DrivingContingencyPlanner < handle
                 if feasible_horiz <= horiz && ~in_obs
                     dyn_feas_xythvel = [dyn_feas_xythvel; candidate_goal];
                     
-                    curr_spline = ...
-                        spline(start, candidate_goal, horiz, num_waypts);
-                    feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
-                                  obj.max_linear_vel, ...
-                                  obj.max_angular_vel, ...
-                                  horiz);
+                    %hold on
+                    %scatter(candidate_goal(1), candidate_goal(2));
+                    %curr_spline = ...
+                    %    spline(start, candidate_goal, horiz, num_waypts);
+                    %feasible_horiz = obj.compute_dyn_feasible_horizon(curr_spline, ...
+                    %              obj.max_linear_vel, ...
+                    %              obj.max_angular_vel, ...
+                    %              horiz);
                 end
             end
         end
@@ -226,6 +227,30 @@ classdef DrivingContingencyPlanner < handle
                     reward_g1 = obj.eval_reward(spline_g1, 'g1', binned_branch_t, binned_horiz);
                     reward_g2 = obj.eval_reward(spline_g2, 'g2', binned_branch_t, binned_horiz);
                     
+                    % Get goal-based reward at the end of the trajectory.
+                    traj_g1 = [spline_g1{1}', spline_g1{2}'];
+                    traj_g2 = [spline_g2{1}', spline_g2{2}'];
+                    goal_r_g1 = eval_u(obj.g2d, obj.sd_goal, traj_g1(end-1:end,:));
+                    goal_r_g2 = eval_u(obj.g2d, obj.sd_goal, traj_g2(end-1:end,:));
+                    
+                    % Acceleration penalty at the branching point. 
+                    vels_g1 = [shared_spline{3}, spline_g1{3}];
+                    vels_g2 = [shared_spline{3}, spline_g2{3}];
+                    accel_g1 = (vels_g1(2:end) - vels_g1(1:end-1))/obj.dt;
+                    accel_g2 = (vels_g2(2:end) - vels_g2(1:end-1))/obj.dt;
+                    low_idx = shared_num_waypts-3;
+                    up_idx = shared_num_waypts+3;
+                    if low_idx < 1
+                        low_idx = 1;
+                    end
+                    if up_idx > length(vels_g1)
+                        up_idx = length(vels_g1);
+                    end
+                    accel_around_branch_t_g1 = accel_g1(low_idx:up_idx);
+                    accel_around_branch_t_g2 = accel_g2(low_idx:up_idx);
+                    accel_r_g1 = 0.0; %-10.0 * norm(accel_around_branch_t_g1);  
+                    accel_r_g2 = 0.0; %-10.0 * norm(accel_around_branch_t_g2); 
+                    
                     % Compute total reward where we weight the reward
                     % contribution of contingency plans based on the
                     % likelihood of that goal occuring. 
@@ -233,24 +258,10 @@ classdef DrivingContingencyPlanner < handle
                     %   R(traj) = R(shared) + \sum^M_i=1 b(g_i) * R(contingency_i)
                     %
                     reward = reward_shared + ...
-                             obj.belief(1) * reward_g1 + ...
-                             obj.belief(2) * reward_g2;
-                        
+                             obj.belief(1) * (reward_g1 + sum(goal_r_g1) + accel_r_g1) + ...
+                             obj.belief(2) * (reward_g2 + sum(goal_r_g2) + accel_r_g2); 
+                         
                     if (reward > opt_reward)
-                        if i == 150
-                            hold on
-                            plot(shared_spline{1}, shared_spline{2}, 'r');
-                            plot(spline_g1{1}, spline_g1{2}, 'y');
-                            plot(spline_g2{1}, spline_g2{2}, 'b');
-                            xlim([-6.5,6.5]);
-                            ylim([-6.5,6.5]);
-                            grid on
-                            f = obj.compute_dyn_feasible_horizon(spline_g2, ...
-                                                            obj.max_linear_vel, ...
-                                                            obj.max_angular_vel, ...
-                                                            binned_horiz-binned_branch_t);
-                        end
-
                         opt_reward = reward;
                         opt_plan = {shared_spline, spline_g1, spline_g2};
                     end
@@ -425,6 +436,7 @@ classdef DrivingContingencyPlanner < handle
         function reward = eval_reward(obj, curr_spline, coll_check, start_t, hor)            
             xs = curr_spline{1};
             ys = curr_spline{2};
+            vels = curr_spline{3};
             ths = curr_spline{5};
             traj = [xs', ys'];
             traj_theta = [xs', ys', ths'];
@@ -437,8 +449,11 @@ classdef DrivingContingencyPlanner < handle
             % TODO: add in penalty for orientation too?
             % TODO: add in penalty for human-driven vehicle prediction. 
             obs_r = eval_u(obj.g2d, obj.sd_obs, traj);
-            goal_r = eval_u(obj.g2d, obj.sd_goal, traj);
-            % goal_r = eval_u(obj.g3d, obj.sd_goal, traj_theta);
+            
+            % --> option 1: evaluate goal reward over all states.
+            %goal_r = eval_u(obj.g2d, obj.sd_goal, traj);
+            % --> option 2: evaluate goal reward only over last state(s).
+            goal_r = 0.0; %eval_u(obj.g2d, obj.sd_goal, traj(end-1:end,:));
             
             % for each time, compute if the robot state is in the human
             % state.
@@ -484,7 +499,7 @@ classdef DrivingContingencyPlanner < handle
             %    fprintf("collision!\n")
             %end
             
-            reward = sum(obs_r + goal_r + human_r); 
+            reward = sum(obs_r + human_r) + sum(goal_r); 
         end
         
         %% Updates the signed distance to goal.

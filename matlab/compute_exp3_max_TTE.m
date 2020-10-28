@@ -35,10 +35,10 @@ else
     %load('max_tte_g1_uth033.mat');
     %load('max_tte_g2_uth033.mat');
     
-    %load('max_tte_g1_uth0.27.mat');
+    load('max_tte_g1_uth0.27.mat');
     %load('max_tte_g2_uth0.27.mat');
     
-    load('max_tte_g1_uth0.25.mat');
+    %load('max_tte_g1_uth0.25.mat');
     %load('max_tte_g2_uth0.25.mat');
     
 %     figure
@@ -106,12 +106,12 @@ else
 
         fprintf('ttl for x0={%f, %f, %f, %f}: %f\n', ...
             init_state{1}, init_state{2}, init_state{3}, init_state{4}, ...
-            (length(tauOut)-tEarliest+1)*params.dt);
+            (length(tauOut)-tEarliest+1-1)*params.dt);
         
         if params.trueThetaIdx == 1
-            fprintf('TTL from opt policy for g%d: %f\n', params.trueThetaIdx, length(z_traj_g1)*params.dt);
+            fprintf('TTL from opt policy for g%d: %f\n', params.trueThetaIdx, (length(z_traj_g1)-1)*params.dt);
         else
-            fprintf('TTL from opt policy for g%d: %f\n', params.trueThetaIdx, length(z_traj_g2)*params.dt);
+            fprintf('TTL from opt policy for g%d: %f\n', params.trueThetaIdx, (length(z_traj_g2)-1)*params.dt);
         end
     end
          

@@ -2,8 +2,8 @@ function params = exp4_gradient()
 
 %% Grid setup
 params.gmin = [-4, -4, 0];
-params.gmax = [4, 4, 0.95];
-params.gnums = [40, 40, 40];
+params.gmax = [4, 4, 0.98];
+params.gnums = [55, 55, 50];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = 3; % dimension(s) which contain the belief
 
@@ -14,7 +14,7 @@ params.g_belief = createGrid(params.gmin(params.bdims), ...
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 30; %15;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -23,6 +23,9 @@ params.uThresh = 0.0;       % threshold on P(u | x, g) -- e.g. 0.15;%0.14;%0.13;
 
 %% Plotting?
 params.plot = false;         % Visualize the BRS and the optimal trajectory?
+
+%% Save data?
+params.save = true;
 
 %% Joint Dynamics Setup.
 params.thetas = {0,0.5,0.98};%{0.5,0.75,0.98};%{0,0.5,0.98}; % discrete set of thetas to precompute Q-func for
@@ -55,6 +58,7 @@ occupancy_map = get_obs_map(obs_data, ...
 occupancy_map = occupancy_map.data;
 occupancy_map(occupancy_map<=0) = 0;
 occupancy_map = 1 - 2.*occupancy_map;
+params.raw_occupancy_map = occupancy_map;
 grid_phys = createGrid(params.gmin(1:n_phys), ...
                         params.gmax(1:n_phys), ...
                         params.gnums(1:n_phys));
@@ -71,7 +75,13 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {1.74359,-1.94872,0.5};%{-0.923,-0.923,0.5};%{-2.97463,-0.923077,0.5};
+params.initial_state = {1.74359,-1.94872,0.75}; 
+% th = 0, 0.25, 0.5, 0.75, 0.9 or 0.98
+
+%{-2.815, -1.037, 0.8};
+%{1.74359,-1.94872,0.5}; 
+
+%Old: {-0.923,-0.923,0.5};%{-2.97463,-0.923077,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.95; 
@@ -85,10 +95,15 @@ params.vel = 0.6;
 params.dt = gdisc3D(1)/params.vel;
 
 % SGD update step.
-params.alpha = 0.01;%0.01;
+params.alpha = 0.01; 
 params.accuracy = 'high'; % valid: 'low', 'medium', 'high'
 params.obs_padding = 3; % pads the size of the obstacle by number of cells 
 
+% Scale the variance on the distribution. 
+% beta = 0.5 (more uniform)
+% beta = 1 (normal)
+% beta = 5 (more peaky)
+params.beta = 0.5;
 params.dyn_sys = MDPHumanSGD3D(params.initial_state, ...
                                 params.reward_info, ...
                                 params.trueTheta, ...
@@ -100,8 +115,9 @@ params.dyn_sys = MDPHumanSGD3D(params.initial_state, ...
                                 params.w1, ...
                                 params.g, ...
                                 params.accuracy, ...
-                                params.obs_padding);
-                            
+                                params.obs_padding, ...
+                                params.beta);
+
 %% Target Set Setup
 tol = 0.1;
 centerTheta = params.trueTheta;
@@ -114,7 +130,7 @@ centerTheta = params.trueTheta;
 % params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 center = cell2mat(params.initial_state);
-widths = [1,1,0.1];
+widths = [0.5,0.5,0.05];
 params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 % visSetIm(params.g, params.initial_value_fun);
 % zlim([0,0.98])
