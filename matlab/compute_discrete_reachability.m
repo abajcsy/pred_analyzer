@@ -27,6 +27,8 @@ params = exp4_gradient();
 % params.dyn_sys.plot_opt_policy(2);
 % params.dyn_sys.plot_opt_policy(3);
 
+% params.dyn_sys.plot_opt_policy_from_x0({-3.40741,0.296296},0.25);
+
 %% Plot optimal control policy starting from initial condition.
 % params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 1);
 % params.dyn_sys.plot_opt_policy_from_x0(params.initial_state, 2);

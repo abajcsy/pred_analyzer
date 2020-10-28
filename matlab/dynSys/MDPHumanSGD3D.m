@@ -108,11 +108,6 @@ classdef MDPHumanSGD3D < handle
             obj.obs_padding = obs_padding;
             obj.beta = beta;
             
-            obj.validMasks = cell(1, obj.num_ctrls);
-            for i=1:obj.num_ctrls
-                obj.validMasks{i} = obj.checkValidAction(obj.reward_info.g.xs,obj.controls{i});
-            end
-            
             obj.has_obs = false;
             if isfield(obj.reward_info, 'obstacles')
                 obj.has_obs = true;
@@ -122,6 +117,11 @@ classdef MDPHumanSGD3D < handle
             %       phi(x,u) = [dist_to_goal(x,u), dist_to_obs(x,u)]    
             obj.goal_feature = obj.compute_goal_feature(reward_info);
             obj.obs_feature = obj.compute_obs_feature(reward_info);
+            
+            obj.validMasks = cell(1, obj.num_ctrls);
+            for i=1:obj.num_ctrls
+                obj.validMasks{i} = obj.checkValidAction(obj.reward_info.g.xs,obj.controls{i});
+            end
             
             % Pre-compute the Q-functions for a discrete set of thetas
             % (used for finite-difference approx to gradient) 
@@ -165,7 +165,6 @@ classdef MDPHumanSGD3D < handle
                                    
             obj.interp_Qfuns = interpn(xs,ys,us,ts,all_Qfuns,...
                                     interp_xs,interp_ys,interp_us,interp_ts);
-                                
                                 
             % ===== DEBUGGING! ===== %
 %             uidx = 7; % 7 = right action, 4 = left action
@@ -641,35 +640,44 @@ classdef MDPHumanSGD3D < handle
         end
         
         %% Gets the optimal trajectory for a specific theta index.
-        function opt_traj = get_opt_traj(obj, xinit, theta_idx)
-            q_fun = obj.q_funs{theta_idx};
-            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+        function opt_traj = get_opt_traj(obj, z, theta)
+%             q_fun = obj.q_funs{theta_idx};
+%             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            z_phys = obj.reward_info.g.xs;
+            g = obj.grid3d;
             
+            pu_vals = zeros([g.shape, numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
-                q_i = q_fun(num2str(u_i)).data;
-                
-                likely_ctrls = obj.validMasks{i};
-                unlikely_states = find(likely_ctrls == 0);
-                q_i(unlikely_states) = NaN;
-                
-                all_q_vals(:,:,i) = q_i;
+                pu_grid = obj.pugivenxtheta(u_i, z_phys);
+                pu_vals(:,:,:,i) = pu_grid;
             end
-            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
-            uopts = Grid(obj.reward_info.g.min, ...
-                        obj.reward_info.g.max, ...
-                        obj.reward_info.g.N);
-            uopts.SetData(opt_u_idxs);
-            xcurr = xinit;
+            
+            xcurr = z;
             opt_traj = [[xcurr{1};xcurr{2}]];
             d_to_goal = norm([xcurr{1}; xcurr{2}] - obj.reward_info.goal);
             iter = 1;
+            
+            validMaskGrid = Grid([g.axis(1), g.axis(3)], ...
+                                [g.axis(2), g.axis(4)], ...
+                                [g.shape(1), g.shape(2)]);
+            
             while d_to_goal >= eps 
                 if iter > 80
                     break;
                 end
                 % get optimal control at this state
-                uopt_idx = uopts.GetDataAtReal(xcurr);
+                pu_single_vals = zeros(1,numel(obj.controls));
+                for i=1:obj.num_ctrls
+                    zcurr = {xcurr{1},xcurr{2},theta};
+                    validMask = obj.validMasks{i};
+                    validMaskGrid.SetData(validMask);
+                    isValid = validMaskGrid.GetDataAtReal(xcurr);
+                    pu_single = eval_u(g, pu_vals(:,:,:,i), cell2mat(zcurr), 'nearest');
+                    pu_single_vals(i) = pu_single;
+                end
+                [uopt_val, uopt_idx] = max(pu_single_vals);
+                
                 xcurr = obj.physical_dynamics(xcurr, obj.controls{uopt_idx});
                 opt_traj(:,end+1) = [xcurr{1};xcurr{2}];
                 d_to_goal = norm([xcurr{1}; xcurr{2}] - obj.reward_info.goal);
@@ -678,19 +686,14 @@ classdef MDPHumanSGD3D < handle
         end
         
         %% Plots optimal policy for the inputted theta. 
-        function plot_opt_policy_from_x0(obj, xinit, theta_idx)
-            q_fun = obj.q_funs{theta_idx};
-            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-                q_i = q_fun(num2str(u_i)).data;
-                all_q_vals(:,:,i) = q_i;
-            end
-            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
+        function plot_opt_policy_from_x0(obj, xinit, theta)
+            opt_traj = obj.get_opt_traj(xinit, theta);
             
             % Colors for each theta
             num_thetas = length(obj.reward_info.thetas);
             scale = obj.gdisc(1);
+            
+            theta_idx = 1;
             
             traj_start_color = [176, 0, 0]/255;
             traj_end_color = [0, 106, 176]/255; 
@@ -702,28 +705,9 @@ classdef MDPHumanSGD3D < handle
             
             figure
             hold on
-            uopts = Grid(obj.reward_info.g.min, ...
-                        obj.reward_info.g.max, ...
-                        obj.reward_info.g.N);
-            uopts.SetData(opt_u_idxs);
-            xcurr = xinit;
-            opt_traj = [[xcurr{1};xcurr{2}]];
-            for t=1:10
-                % plot the current state.
-                scatter(xcurr{1}, ...
-                        xcurr{2}, ...
-                        'linewidth', 2, ...
-                        'marker', 'o', ...
-                        'markeredgecolor', traj_color, ...
-                        'markerfacecolor', traj_color);
-                % get optimal control at this state
-                uopt_idx = uopts.GetDataAtReal(xcurr);
-                xcurr = obj.physical_dynamics(xcurr, obj.controls{uopt_idx});
-                opt_traj(:,end+1) = [xcurr{1};xcurr{2}];
-            end 
             
             % Plot lines connecting each of the state dots. 
-            plot(opt_traj(1,:), opt_traj(2,:), 'Color', traj_color, 'linewidth', 2);
+            plot(opt_traj(1,:), opt_traj(2,:), 'linewidth', 2);
             
             % Goal colors.
             g1Color = 'r';
@@ -744,7 +728,7 @@ classdef MDPHumanSGD3D < handle
             t1.Color = g1Color;
       
             % plot obstacle.
-            if obj.has_obs
+            if obj.has_obs 
                 % Visualize black and white 
 %                 bandw_cmap = [1,1,1;0,0,0];
 %                 colormap(bandw_cmap)
@@ -760,7 +744,7 @@ classdef MDPHumanSGD3D < handle
             box on
             grid off
             view(0,90);
-            title(strcat("Optimal policy for theta=", num2str(theta_idx),"."));
+            title(strcat("Optimal policy for theta=", num2str(theta),"."));
         end
         
     end
