@@ -372,36 +372,15 @@ classdef MDPHumanSGD3D < handle
         % Returns map where key is control and value is grid over physical
         % state space with the obstacle-feature for each (x,y) pair.
         function obs_feature = compute_obs_feature(obj, reward_info)
-            obs_padded = -1 .* imdilate(-1 .* reward_info.obstacles.data, eye(obj.obs_padding));
+            %obs_padded = -1 .* imdilate(-1 .* reward_info.obstacles.data, eye(obj.obs_padding));
             
-            obs_padded(obs_padded>=0) = 0;
+            % convert the signed distance into a "bump distance"
+            % where phi(x,u) = 0 if outside obstacle
+            % and   phi(x,u) = signedDist inside obstacle
+            obs_padded = reward_info.featurized_obstacles.data;
+            obs_padded(reward_info.featurized_obstacles.data >= 0) = 0;
             obs_feature = obs_padded;
-
-%             for oi = 1:length(reward_info.obstacles)
-%                     obs_info = reward_info.obstacles{oi};
-%                     obs_min = obs_info(1:2) - ones(size(obs_info(1:2)))*obj.obs_padding;
-%                     obs_max = obs_info(1:2) + obs_info(3:4) + ones(size(obs_info(1:2)))*obj.obs_padding;
-%                     obs_feature_curr = ...
-%                         shapeRectangleByCorners(reward_info.g, ...
-%                                                 obs_min, obs_max);
-%                                              
-%                     % convert the signed distance into a "bump distance"
-%                     % where phi(x,u) = 0 if outside obstacle
-%                     % and   phi(x,u) = signedDist inside obstacle.
-%                     obs_mask = (state_grid{1} >= obs_min(1)) & ...
-%                         (state_grid{2} >= obs_min(2)) & ...
-%                         (state_grid{1} <= obs_max(1)) & ...
-%                         (state_grid{2} <= obs_max(2)); 
-%                     
-%                     obs_feature_curr = obs_feature_curr .* obs_mask;
-%                     
-%                     % combine all obstacle signed distance functions.
-%                     if isempty(obs_feature)
-%                         obs_feature = obs_feature_curr;
-%                     else
-%                         obs_feature = min(obs_feature, obs_feature_curr);
-%                     end
-%             end
+            
         end
         
         %% Checks if next state is in an obstacle or outside comp grid. 
@@ -423,7 +402,7 @@ classdef MDPHumanSGD3D < handle
                 penalty_obstacle_mask = zeros(size(z{1}));
             end
             
-            validAction = ~(penalty_outside_mask==1 | penalty_obstacle_mask<0);
+            validAction = ~(penalty_outside_mask == 1 | penalty_obstacle_mask  == 1);
 %             validAction = ~(penalty_outside_mask==1);
             validAction = validAction .* 1.0;
         end
@@ -629,9 +608,9 @@ classdef MDPHumanSGD3D < handle
                 % Visualize black and white 
 %                 bandw_cmap = [1,1,1;0,0,0];
 %                 colormap(bandw_cmap)
-                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
-                        obj.reward_info.obstacles.g{2}, ...
-                        obj.reward_info.obstacles.data);
+                ph = pcolor(obj.reward_info.featurized_obstacles.g{1}, ...
+                        obj.reward_info.featurized_obstacles.g{2}, ...
+                        obj.reward_info.featurized_obstacles.data);
                 set(ph, 'EdgeColor', 'none');
             end
             
@@ -732,9 +711,9 @@ classdef MDPHumanSGD3D < handle
                 % Visualize black and white 
 %                 bandw_cmap = [1,1,1;0,0,0];
 %                 colormap(bandw_cmap)
-                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
-                        obj.reward_info.obstacles.g{2}, ...
-                        obj.reward_info.obstacles.data);
+                ph = pcolor(obj.reward_info.featurized_obstacles.g{1}, ...
+                        obj.reward_info.featurized_obstacles.g{2}, ...
+                        obj.reward_info.featurized_obstacles.data);
                 set(ph, 'EdgeColor', 'none');
             end
             set(gcf,'color','w');

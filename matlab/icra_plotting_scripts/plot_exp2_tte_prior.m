@@ -40,9 +40,9 @@ lineOut.MarkerSize = 5;
 
 xlim([1,9])
 %ylim([0,4])
-ylabel('$TTL$', 'Interpreter', 'latex', 'fontsize', 16)
-xlabel('$b_0(\beta = unmodelled)$', 'Interpreter', 'latex', 'fontsize', 16)
-title('TTL as function of prior', 'Interpreter', 'latex', 'fontsize', 20)
+ylabel('$TTL$', 'Interpreter', 'latex', 'fontsize', 20)
+xlabel('$b^0(\beta = 0)$', 'Interpreter', 'latex', 'fontsize', 20)
+title('TTL as function of prior', 'Interpreter', 'latex', 'fontsize', 24)
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,400,700])
 xticks(linspace(1,9,9))

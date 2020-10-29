@@ -56,8 +56,22 @@ occupancy_map = get_obs_map(obs_data, ...
 % Round occupancy map to 0 (free) or 1 (obs), turn it into made up of
 % +1s (free) and -1s (obs), and compute signed distance function.
 occupancy_map = occupancy_map.data;
-occupancy_map(occupancy_map<=0) = 0;
-occupancy_map = 1 - 2.*occupancy_map;
+
+% Convert occupancy map into 0 (free) and 1 (obs)
+occupancy_map = (occupancy_map < 0) .* 0.0 + (occupancy_map >= 0) .* 1.0;
+
+% Save the raw occupancy map. 
+occupancy_map_grid = Grid(params.gmin(1:n_phys), params.gmax(1:n_phys), params.gnums(1:n_phys));
+occupancy_map_grid.SetData(occupancy_map);
+params.reward_info.obstacles = occupancy_map_grid;
+
+% Enlarge the occupancy map by 1 pixel.
+se = ones(3, 3);  
+occupancy_map = imdilate(occupancy_map, se);
+
+% Convert enlarged occupancy map into +1s (free) and -1s (obs). 
+occupancy_map = (occupancy_map == 0) .* 1.0 + (occupancy_map == 1) .* -1.0;
+
 params.raw_occupancy_map = occupancy_map;
 grid_phys = createGrid(params.gmin(1:n_phys), ...
                         params.gmax(1:n_phys), ...
@@ -65,7 +79,9 @@ grid_phys = createGrid(params.gmin(1:n_phys), ...
 obs_signed_distance = compute_fmm_map(grid_phys, occupancy_map);
 obs_grid = Grid(params.gmin(1:n_phys), params.gmax(1:n_phys), params.gnums(1:n_phys));
 obs_grid.SetData(obs_signed_distance);
-params.reward_info.obstacles = obs_grid;
+
+% Save the featurized signed distance to obstacles. 
+params.reward_info.featurized_obstacles = obs_grid;
                      
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
@@ -156,5 +172,44 @@ params.minWith = "minVWithL";
 %% Optimal control reconstruction params
 % Interpolate the value function when computing the opt ctrl?
 params.extraArgsCtrl.interpolate = false;
+
+end
+
+%% Dialates the obstacle region by dilate_sz gridcells.
+function dilated_occu_map = dilate_map(occupancy_map, dilate_sz)
+    % THIS IS A VERY BRUTE FORCE IMPLEMENTATION!
+    
+% create structuring element              
+se=ones(3, 3);  
+  
+% store number of rows in P and number of columns in Q.            
+[P, Q]=size(se);  
+  
+% invert the colors for a minute!
+%occupancy_map = imcomplement(occupancy_map);
+
+% create a zero matrix of size I.         
+dilated_occu_map = zeros(size(occupancy_map, 1), size(occupancy_map, 2));  
+  
+for i=ceil(P/2):size(occupancy_map, 1)-floor(P/2) 
+    for j=ceil(Q/2):size(occupancy_map, 2)-floor(Q/2) 
+  
+        % take all the neighbourhoods. 
+        on=occupancy_map(i-floor(P/2):i+floor(P/2), j-floor(Q/2):j+floor(Q/2));   
+         
+        % take logical se 
+        nh=on(logical(se));     
+  
+        % compare and take minimum value of the neighbor  
+        % and set the pixel value to that minimum value.     
+        dilated_occu_map(i, j)=max(nh(:));       
+    end
+end
+
+
+% figure
+% imshow(occupancy_map);
+% figure
+% imshow(dilated_occu_map);
 
 end
