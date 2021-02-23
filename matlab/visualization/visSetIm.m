@@ -146,7 +146,7 @@ switch g.dim
     h.LineStyle = LineStyle;
     h.LineWidth = LineWidth;
   case 3
-    h = visSetIm3D(g, data, color, level, 1, applyLight);
+    h = visSetIm3D(g, data, color, level, alpha, applyLight);
     
   case 4
     h = visSetIm4D(g, data, color, level, sliceDim, applyLight);

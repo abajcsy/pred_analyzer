@@ -16,8 +16,8 @@ data_path = strcat(repo.path, '/matlab/data/exp1/');
 
 % === Data where the *legible*& controls are restricted === % 
 % ===           (like the deceptive ctrls)           === %  
-%load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_1.mat'))
-load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_2.mat'))
+load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_1.mat'))
+%load(strcat(data_path, 'exp_1_min_uthresh_0.15_theta_2.mat'))
 % --- final data --- %
 
 
@@ -50,7 +50,7 @@ endColorBlue = [38., 138., 240.]/255.;
 startColorOpt = [0.5,0.5,0.5];
 endColorOptRed = [199, 149, 155]/255.; %[191, 151, 151]/255.;
 endColorOptBlue = [112, 156, 219]/255.;
-startColor = endColorBlue; %[97., 76., 76.]/255.;
+startColor = endColorRed; %endColorBlue; %[97., 76., 76.]/255.;
 goalColors = {endColorRed, endColorBlue};
 if params.trueThetaIdx == 1
     endColor = endColorRed;
@@ -86,7 +86,7 @@ ph = pcolor(params.gimg.xs{1}, params.gimg.xs{2}, params.obs_map_full);
 set(ph, 'EdgeColor', 'none');
 
 %% Plotting + font size info
-fontsz = 20;
+fontsz = 23;
 scattersz = 10;
 
 % %% GET & PLOT THE TRAJECTORY DURING DISCHJIPDE SOLVE
@@ -252,9 +252,12 @@ xticks(longer_traj_tau)
 xlim([opt_traj_tau(1), time_lim]);
 yticks(0:0.25:1);
 ylim([0,1]);
-ylabel('$b(g_1)$', 'Interpreter', 'latex', 'fontsize', 20)
-xlabel('$t$', 'Interpreter', 'latex', 'fontsize', 20)
+ylabel('$b(g_1)$', 'Interpreter', 'latex', 'fontsize', 22)
+xlabel('$t$', 'Interpreter', 'latex', 'fontsize', 22)
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,700,300])
+ax = gca;
+ax.FontSize = 16; 
+xtickformat('%0.1f')
 box on
 grid on

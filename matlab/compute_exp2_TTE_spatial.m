@@ -89,8 +89,7 @@ mask_grid = Grid(params.g.min, params.g.max, params.g.N); % for converting from 
 all_states = mask_grid.get_grid();
 likelyMasks = params.dyn_sys.getLikelyMasks(all_states);
 
-<<<<<<< HEAD
-=======
+
 % ----- TEST! ------ %
 % init_state = {1.4, 1.7, 0.5};
 % [traj, traj_tau, ctrls] = computeOptTraj(init_state, ....
@@ -100,8 +99,6 @@ likelyMasks = params.dyn_sys.getLikelyMasks(all_states);
 %                       params.dyn_sys, ...
 %                       params.uMode);
 % % ----- TEST! ------ %
-
->>>>>>> b66489f623703131a87babe72d112b20450f09b7
 for i = 1:length(human_init_conds)
     init_xy = human_init_conds{i};
     init_state = {init_xy(1), init_xy(2), binit};
