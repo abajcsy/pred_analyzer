@@ -1,6 +1,6 @@
 %% File to compute reachable sets and optimal control via discrete-time HJ
 clear all
-clf
+cl
 close all
 
 %% Load all the parameters for this computation!
