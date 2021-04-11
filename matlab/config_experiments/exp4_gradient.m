@@ -1,9 +1,9 @@
 function params = exp4_gradient()
 
 %% Grid setup
-params.gmin = [-4, -4, 0];
-params.gmax = [4, 4, 0.98];
-params.gnums = [55, 55, 50];
+params.gmin = [-4, -4, 0]; %[-16/2, -16/2, 0]; 
+params.gmax = [4, 4, 0.98]; %[16/2, 16/2, 0.98]; %[4, 4, 0.98];
+params.gnums = [55, 55, 50]; %[60, 60, 50];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.bdims = 3; % dimension(s) which contain the belief
 
@@ -39,7 +39,7 @@ g_phys = createGrid(params.gmin(1:2)', ...
                     params.gmax(1:2)', ...
                     params.gnums(1:2)');
 params.reward_info.g = g_phys; 
-params.reward_info.goal = [1; 2]; %[-2; 2]; 
+params.reward_info.goal = [1; 2]; %[1.49, 4.2]; %[-2; 2]; 
 params.reward_info.goalRad = 0.5; %1.3;
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.

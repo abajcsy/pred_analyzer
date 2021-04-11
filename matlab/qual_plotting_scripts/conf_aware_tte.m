@@ -4,8 +4,8 @@ close all
 
 %% load data.
 
-load('exp_2_tte_spatial_fine_5050.mat');
-%load('exp_2_tte_spatial_fine_1090.mat');
+%load('exp_2_tte_spatial_fine_5050.mat');
+load('exp_2_tte_spatial_fine_1090.mat');
 
 %% Load params. 
 params = exp2_conf_reachability();
@@ -13,7 +13,7 @@ params = exp2_conf_reachability();
 %% Create fig. 
 figure
 hold on
-bandw_cmap = [1,1,1;0,0,0]; %[0,0,0;1,1,1]; %[1,1,1;0,0,0];
+bandw_cmap = [0,0,0;1,1,1]; %[1,1,1;0,0,0];
 colormap(bandw_cmap)
 ph = pcolor(params.gimg.xs{1}, params.gimg.xs{2}, params.obs_map_full);
 %ph = pcolor(params.reward_info.obstacles.g{1}, params.reward_info.obstacles.g{2}, params.reward_info.obstacles.data);
@@ -36,15 +36,15 @@ for i=1:length(all_ttes)
             'EdgeColor', 'none');
     s = scatter(traj(1),traj(2),20,color,'filled');
 end
-% plot modelled goal. 
+
+% plot modelled goal.
 scatter(params.theta(1), params.theta(2), 80, 'r', 'linewidth', 3);
-tg = text(params.theta(1), params.theta(2)+0.7, 'goal');
-tg.Color = 'r';
-tg.BackgroundColor = 'w';
-tg.FontSize = 20;
+% tg = text(params.theta(1), params.theta(2)+0.7, 'goal');
+% tg.Color = 'r';
+% tg.BackgroundColor = 'w';
+% tg.FontSize = 20;
 
 title('Minimum TTL as a function of initial state', 'FontSize', 20);
-
 
 xlim([params.gmin(1),params.gmax(1)])
 ylim([params.gmin(2),params.gmax(2)])
@@ -52,7 +52,8 @@ set(gca,'xtick',[])
 set(gca,'ytick',[])
 ylabel('y', 'Interpreter', 'latex', 'fontsize', 20)
 xlabel('x', 'Interpreter', 'latex', 'fontsize', 20)
-set(gcf, 'color', 'w')
+set(gcf, 'color', 'k')
+set(gca, 'color', 'k')
 set(gcf, 'position', [0,0,700,700])
 box on
 grid off
@@ -66,6 +67,7 @@ ax = axes('Position',[0,0,700,700],'Box','off');
 ph = plot(linspace(0,1,length(unique_ttes)), unique_ttes);
 colormap(ax, [r', g', b'])
 cbh = colorbar;
+cbh.Color = 'w';
 %lcolorbar([min_tte, 1.36, 1.8182, max_tte], 'YLabelString', 'minTTE')
 set(ph,'Visible','off');
 ax.Visible = 'off';
@@ -74,3 +76,5 @@ cbh.Ticks = linspace(0,1,length(unique_ttes));
 cbh.TickLabels = unique_ttes;
 cbh.FontSize = 15;
 cbh.FontName = 'Times New Roman';
+
+export_fig('conf_aware_tte.png', '-png', '-transparent')

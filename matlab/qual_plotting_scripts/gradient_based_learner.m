@@ -26,7 +26,7 @@ gs = linspace(start_c(2), end_c(2), numel(params.tau));
 bs = linspace(start_c(3), end_c(3), numel(params.tau));
 colors = [rs', gs', bs'];
 
-params_of_interest = 0.05:0.05:0.95; %0.05:0.02:0.95; 
+params_of_interest = 0.05:0.02:0.95; %0.05:0.05:0.95; %
 
 tte_per_p0_pstar = zeros([length(all_initial_states), length(params_of_interest)]);
 
