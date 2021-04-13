@@ -3,26 +3,27 @@ classdef MDPHumanRobotBelief < handle
     properties
         thetas          % (cell) set of model parameters
         num_ctrls       % (int) number of discrete controls
+        num_joint_ctrls % (int) number of discrete joint controls
         controls        % (arr) discretized controls
+        joint_controls  % (arr) joint set of controls for human and robot
         z0              % (cell) initial joint state z = (x, y, b(theta_1))
         uThresh         % (float) threshold probability for sufficiently likely controls
-        trueBetaIdx    % (int) true human intent parameter.
-        v_fun          % Value functions for theta
-        q_fun          % Q-functions for theta
+        trueThetaIdx    % (int) true human intent parameter.
+        v_funs_H        % (cell) Value functions for human (one entry per theta)
+        q_funs_H        % (cell) Q-functions for human (one entry per theta)
+        v_funs_R        % (cell) Value functions for robot (one entry per theta)
+        q_funs_R        % (cell) Q-functions for robot (one entry per theta)
         reward_info     % (struct) Information for reward function construction
         nearInf         % (float) Very large number which is < Inf 
         has_obs         % (bool) If this environment has obstacles or not.
-        betas            % (cell) array of 3 beta values \in [0, inf) which governs variance of likelihood model.
+        beta            % (float) beta \in [0, inf) which governs variance of likelihood model.
         gdisc           % (arr) discretization resolution in x,y,b(th=1)
         b_range         % (arr) range of belief values to clip to.
-        
-        % Note: Is it safe to assume b scalar or can we have len(theta)>2
-        % (which would mean to have b of dimension len(theta)-1)?
     end
     
     methods
-        function obj = MDPHumanRobotBelief(z0, reward_info, trueBetaIdx, ...
-                                        uThresh, gdisc, gamma, eps, betas, b_range)
+        function obj = MDPHumanRobotBelief(z0, reward_info, trueThetaIdx, ...
+                                        uThresh, gdisc, gamma, eps, beta, b_range)
             %   Represents joint dynamics of a 2D point human 
             %   and a 2D discrete belief distribution. The belief is over
             %   two unknown goals, denoted by theta. The dynamics follow 
@@ -30,27 +31,34 @@ classdef MDPHumanRobotBelief < handle
             %   and the four DIAGONALS and STOP. 
             %
             %   State:
-            %       z = [x, y, b(beta = beta_1)]
+            %       z = [x, y, b(theta = th1)]
             %   Dynamics:
             %       zdot = [x + u, 
             %               y + u, 
-            %               P(u | x, beta_1)b(beta = b1)/P(x,u)
+            %               P(u | x, theta)b(theta = th1)/P(x,u)]
             %       where:
-            %           P(u | x, beta) \propto e^{beta * Q(x,u)}
+            %           P(u | x, theta) \propto e^{beta * Q(x,u,theta)}
             %
-            %       Q(x,u) is computed via value iteration and the 
+            %       Q(x,u,theta) is computed via value iteration and the 
             %       reward function information packed into reward_info.
             %   Controls:
             %       u \in {'S', 'D', 'U', 'L', 'LD', 'LU', 'R', 'RD', 'RU'}
             %   
             obj.controls = obj.generate_controls_mdp(gdisc);
+            obj.joint_controls = obj.generate_joint_controls(obj.controls);
             obj.num_ctrls = numel(obj.controls);
+            obj.num_joint_ctrls = numel(obj.controls);
             obj.z0 = z0;
             obj.uThresh = uThresh;
-            obj.trueBetaIdx = trueBetaIdx;
+            obj.trueThetaIdx = trueThetaIdx;
             obj.nearInf = 1000000000.0;
+            obj.thetas = reward_info.thetas;
+            obj.v_funs_H = cell(1,numel(reward_info.thetas));
+            obj.q_funs_H = cell(1,numel(reward_info.thetas));
+            obj.v_funs_R = cell(1,numel(reward_info.thetas));
+            obj.q_funs_R = cell(1,numel(reward_info.thetas));
             obj.reward_info = reward_info;
-            obj.betas = betas;
+            obj.beta = beta;
             obj.gdisc = gdisc;
             obj.b_range = b_range;
             
@@ -59,14 +67,29 @@ classdef MDPHumanRobotBelief < handle
                 obj.has_obs = true;
             end
             
-            % Pre-compute the Q-functions for each theta.
-            fprintf('Pre-computing Q-function for fixed theta (goal)...\n');
-            st = tic;
-            [v_f, q_f] = obj.compute_q_fun(gamma, eps);
-            obj.v_fun = v_f;
-            obj.q_fun = q_f;
-            et = toc(st);
-            fprintf('   compute time: %f s\n', et);
+            % Pre-compute the robot Q-functions for each theta.
+            for th_idx=1:numel(reward_info.thetas)
+                fprintf('Pre-computing Robot Q-function for theta = %d / %d\n', ...
+                    th_idx, numel(reward_info.thetas));
+                st = tic;
+                [v_f, q_f] = obj.compute_q_fun_R(th_idx, gamma, eps);
+                obj.v_funs_R{th_idx} = v_f;
+                obj.q_funs_R{th_idx} = q_f;
+                et = toc(st);
+                fprintf('   compute time: %f s\n', et);
+            end
+            
+            % Pre-compute the human Q-functions for each theta.
+            for th_idx=1:numel(reward_info.thetas)
+                fprintf('Pre-computing Human Q-function for theta = %d / %d\n', ...
+                    th_idx, numel(reward_info.thetas));
+                st = tic;
+                [v_f, q_f] = obj.compute_q_fun_H(th_idx, gamma, eps);
+                obj.v_funs_H{th_idx} = v_f;
+                obj.q_funs_H{th_idx} = q_f;
+                et = toc(st);
+                fprintf('   compute time: %f s\n', et);
+            end
         end
         
         %% Joint dynamics zdot = [xdot, bdot].
@@ -75,11 +98,17 @@ classdef MDPHumanRobotBelief < handle
             % Note that no interpolation is done (should be handled by Grid class).
             znext = cell(size(z));
             
-            u_R = obj.opt_robot_control(z);
+            u_R_i = obj.opt_robot_control(z);
             
-            znext{1} = z{1} + u_H(1) + u_R(1);
-            znext{2} = z{2} + u_H(2) + u_R(2);
-            beta_posteriors = obj.belief_update(u_H, u_R,z);
+            znext{1} = z{1} + u_H(1);
+            znext{2} = z{2} + u_H(2);
+            beta_posteriors = z{3}.*0;
+            for ui=1:obj.num_ctrls
+                u = obj.controls{ui};
+                znext{1} = znext{1} + u(1).*(u_R_i==ui);
+                znext{2} = znext{1} + u(2).*(u_R_i==ui);
+                beta_posteriors = beta_posteriors + obj.belief_update(u_H, u, z).*(u_R_i==ui);
+            end
             znext{3} = beta_posteriors{1};
         end
         
@@ -88,51 +117,69 @@ classdef MDPHumanRobotBelief < handle
             % Return next state after applying control u to z. 
             % Note that no interpolation is done (should be handled by Grid class).
             znext = cell(2);
-            u_R = obj.opt_robot_control(z);
-            znext{1} = z{1} + u_H(1) + u_R(1);
-            znext{2} = z{2} + u_H(2) + u_R(2);
+            
+            znext{1} = z{1} + u(1);
+            znext{2} = z{2} + u(2);
+        end
+        
+        function u_R_i = opt_robot_control(z)
+            u_R_i = z{1}.*0 + 1; % create matrix of 1's of the same size as the grid.
+            u_R_opt = u_R_i - inf; % set initial optimal values to -inf
+            for ui=1:obj.num_ctrls
+                u = obj.controls{ui};
+                u_i_val = u_R_i .* 0;
+                for i=1:numel(obj.thetas)
+                    q_fun = obj.q_funs_R{i};
+                    q_val = q_fun(num2str(u));
+                    u_i_val = u_i_val + z{3}.*q_val.GetDataAtReal(z);
+                end
+                u_R_i(u_i_val > u_R_opt) = ui;
+                u_R_opt(u_i_val > u_R_opt) = u_i_val(u_i_val > u_R_opt);
+            end
         end
         
         %% Dynamics of the belief states (i.e. belief update)
-        function beta_posteriors = belief_update(obj,u,z)
+        function bnext = belief_update(obj,u_H, u_R,z)
             % Calculate Bayesian posterior update.
-            b1 = obj.pugivenxbeta(u, z, obj.betas{1}) .* z{3};
-            b2 = obj.pugivenxbeta(u, z, obj.betas{2}) .* (1-z{3});
-            normalizer = b1 + b2;
-            
-            beta_posteriors = cell(1,1);
-            % Is min(max(...)) correct for num beta > 2?
-            beta_posteriors{1} = min(max(b1 ./ normalizer, obj.b_range(1)), obj.b_range(2));
+            b0 = obj.pugivenxtheta(u_H, u_R, z, obj.q_funs_H{1}) .* z{3};
+            b1 = obj.pugivenxtheta(u_H, u_R, z, obj.q_funs_H{2}) .* (1-z{3});
+            normalizer = b0 + b1;
+            bnext = b0 ./ normalizer;
+            bnext = min(max(bnext, obj.b_range(1)), obj.b_range(2));
         end
         
         %% Mask over states for each control denoting if that control 
         %  is sufficiently likely at this state. 
         function likelyMasks = getLikelyMasks(obj, z)
             likelyMasks = containers.Map;
-            for i=1:obj.num_ctrls
-                u_i = obj.controls{i};
-
-                % We want to choose controls such that:
-                %   U = {u : P(u | x, theta = trueTheta) > delta}
-                putheta = obj.pugivenxbeta(u_i, z, obj.betas{obj.trueBetaIdx});
-%                 max(putheta,[],'all')
+            u_R_i = obj.opt_robot_control(z);
+            for ui=1:obj.num_ctrls
+                u = obj.controls{ui};
+                putheta = z{3}.*0;
+                for uj=1:obj.num_ctrls
+                    u_R = obj.controls{uj};
+                    % We want to choose controls such that:
+                    %   U = {u : P(u | u_R, x, theta = trueTheta) > delta}
+                    putheta = putheta + obj.pugivenxtheta(u, u_R, z, obj.q_funs{obj.trueThetaIdx}).*(u_R_i==uj);
+                end
                 mask = (putheta > obj.uThresh);
                 mask = mask * 1.0;
-                mask(mask==0) = nan;
-                likelyMasks(num2str(u_i)) = mask;
+                mask(mask==0) = nan; % set all unlikely controls = NaN so min/maxing isn't affected. 
+                likelyMasks(num2str(u)) = mask;
             end
         end
         
-        %% Computes P(u | x, beta) \propto e^{beta * Q(x,u)}
-        function pu = pugivenxbeta(obj, u, z, beta)
+        %% Computes P(u | u_R, x, theta) \propto e^{beta * Q(x,u, u_R,theta)}
+        function pu = pugivenxtheta(obj, u_H, u_R, z, q_fun)
             % Return probability of control u given state x and model parameter theta.
-            q_val = obj.q_fun(num2str(u));
-            numerator = exp(beta * q_val.GetDataAtReal(z));
+            u = [u_H,u_R];
+            q_val = q_fun(num2str(u));
+            numerator = exp(obj.beta * q_val.GetDataAtReal(z));
             denominator = 0;
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
-                q_val = obj.q_fun(num2str(u_i));
-                denominator = denominator + exp(beta * q_val.GetDataAtReal(z));
+                q_val = q_fun(num2str(u_i));
+                denominator = denominator + exp(obj.beta * q_val.GetDataAtReal(z));
             end
             pu = numerator ./ denominator;
         end
@@ -152,19 +199,30 @@ classdef MDPHumanRobotBelief < handle
             end
         end
         
-        %% Computes the Q-function for theta denoted by true_theta_idx 
+        function joint_controls = generate_joint_controls(obj, controls)
+            joint_controls = cell(1,numel(controls)*numel(controls));
+            ind = 1;
+            for i=1:numel(controls)
+                for j=1:numel(controls)
+                    joint_controls{ind} = [controls{i}, controls{j}];
+                    ind = ind + 1;
+                end
+            end
+        end
+        
+        %% Computes the robot Q-function for theta denoted by true_theta_idx 
         %   via value iteration. 
-        function [v_grid, q_fun] = compute_q_fun(obj, gamma, eps)
+        function [v_grid, q_fun] = compute_q_fun_R(obj, true_theta_idx, gamma, eps)
             % Compute reward function
-            % reward_info: gmin,gmax,gnums,g,obs_min,obs_max,obs_val
+            % reward_info:
+            % gmin,gmax,gnums,g,obs_min,obs_max,obs_val,lambda,k,goal
+            
             r_fun = containers.Map;
             state_grid = obj.reward_info.g.xs;
             g_min = obj.reward_info.g.min';
             g_max = obj.reward_info.g.max';
             g_nums = obj.reward_info.g.N';
-            
-            % Create one mask which shows all states where obstacles are. 
-            penalty_in_obs_mask = obj.reward_info.obstacles.data;
+            theta = cell2mat(obj.thetas{true_theta_idx});
             
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -188,19 +246,12 @@ classdef MDPHumanRobotBelief < handle
                 end
                 
                 % action costs
-                if u_i(1) == 0 && u_i(2) == 0
-                    % Stop
-                    grid = Grid(g_min, g_max, g_nums);
-                    grid.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
-                    grid.SetDataAtReal(obj.reward_info.theta, 0);
-                    action_cost = grid.data;
-                elseif u_i(1) ~= 0 && u_i(2) ~= 0
-                    action_cost = ones(size(next_state{1})) .* -sqrt(2);
-                else
-                    action_cost = ones(size(next_state{1})) .* -1;
-                end
+                action_cost = 0; %-obj.reward_info.lambda*norm(u_i,2);
                 
-                r_i = action_cost + penalty_obstacle + penalty_outside;
+                % feature costs
+                feature_cost = theta(1).*(obj.reward_info.k-next_state{1}) - theta(2).*((obj.reward_info.goal(1)-next_state{1}).^2 + (obj.reward_info.goal(2)-next_state{2}).^2);
+                
+                r_i = action_cost + feature_cost + penalty_obstacle + penalty_outside;
                 r_fun(num2str(u_i)) = r_i;
             end
             
@@ -221,7 +272,6 @@ classdef MDPHumanRobotBelief < handle
                 % \ell_\infty stopping condition
                 v_delta = v_fun - v_fun_prev;
                 max_dev = max(abs(v_delta),[],'all');
-                fprintf('    Max diff in value funs: %f, eps: %f\n', max_dev, eps);
                 if max_dev < eps
                     break
                 else
@@ -255,10 +305,126 @@ classdef MDPHumanRobotBelief < handle
                 q_i(isInvalid) = 0;
                 q = Grid(g_min, g_max, g_nums);
                 
-                if u_i(1)==0 && u_i(1)==0 % Ensure stop action is only equally likely if at goal.
-                    q.SetData(ones(size(next_state{1})) .* -obj.nearInf); 
-                    q.SetDataAtReal(obj.reward_info.theta, 0);
+                % -inf if moving outside grid or into obstacle
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+                                  (penalty_outside_mask==1) .* -obj.nearInf; 
+                              
+                if obj.has_obs
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+                    penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+                                    (penalty_obstacle_mask==1) .* -obj.nearInf;
+                else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle = zeros(size(state_grid{1}));
                 end
+                
+                q.SetData(q_i + penalty_obstacle + penalty_outside); 
+                q_fun(num2str(u_i)) = q;
+            end
+        end
+        
+        %% Computes the human Q-function for theta denoted by true_theta_idx 
+        %   via value iteration. 
+        function [v_grid, q_fun] = compute_q_fun_H(obj, true_theta_idx, gamma, eps)
+            % Compute reward function
+            % reward_info:
+            % gmin,gmax,gnums,g,obs_min,obs_max,obs_val,lambda,k,goal
+            
+            r_fun = containers.Map;
+            state_grid = obj.reward_info.g.xs;
+            g_min = obj.reward_info.g.min';
+            g_max = obj.reward_info.g.max';
+            g_nums = obj.reward_info.g.N';
+            theta = cell2mat(obj.thetas{true_theta_idx});
+            
+            for i=1:obj.num_joint_ctrls
+                u_i = obj.joint_controls{i};
+                u = u_i(1:2) + u_i(3:4);
+                next_state = obj.physical_dynamics(state_grid, u);
+                
+                % -inf if moving outside grid
+                penalty_outside_mask = (next_state{1} < g_min(1)) | ....
+                                       (next_state{2} < g_min(2)) | ...
+                                       (next_state{1} > g_max(1)) | ...
+                                       (next_state{2} > g_max(2));
+                penalty_outside = (penalty_outside_mask==0) .* 0.0 + ...
+                                  (penalty_outside_mask==1) .* -obj.nearInf; 
+                
+                if obj.has_obs
+                    penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
+                    penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
+                                    (penalty_obstacle_mask==1) .* -obj.nearInf;
+                else
+                    % if no obstacles, then no penalty for obstacle anywhere. 
+                    penalty_obstacle = zeros(size(state_grid{1}));
+                end
+                
+                % action costs
+                action_cost = -obj.reward_info.lambda*norm(u,2);
+                
+                % feature costs
+                feature_cost = theta(1).*(obj.reward_info.k-next_state{1}) - theta(2).*((obj.reward_info.goal(1)-next_state{1}).^2 + (obj.reward_info.goal(2)-next_state{2}).^2);
+                
+                r_i = action_cost + feature_cost + penalty_obstacle + penalty_outside;
+                r_fun(num2str(u_i)) = r_i;
+            end
+            
+            % Compute value function
+            v_fun_prev = zeros(g_nums); %rand(obj.reward_info.gnums);
+            v_grid = Grid(g_min, g_max, g_nums);
+            while true
+                v_grid.SetData(v_fun_prev);
+                possible_vals = zeros([g_nums, numel(obj.controls)]);
+                for i=1:obj.num_joint_ctrls
+                    u_i = obj.joint_controls{i};
+                    u = u_i(1:2) + u_i(3:4);
+                    next_state = obj.physical_dynamics(state_grid, u);
+                    v_next = v_grid.GetDataAtReal(next_state);
+                    possible_vals(:,:,i) = r_fun(num2str(u_i)) + (gamma .* v_next);
+                end
+                v_fun = max(possible_vals, [], 3);
+                
+                % \ell_\infty stopping condition
+                v_delta = v_fun - v_fun_prev;
+                max_dev = max(abs(v_delta),[],'all');
+                if max_dev < eps
+                    break
+                else
+                    v_fun_prev = v_fun;
+                end
+            end
+            v_grid.SetData(v_fun);
+            
+            % Compute Q-function
+            q_fun = containers.Map;
+            sum_exp = 0;
+            for i=1:obj.num_joint_ctrls
+                u_i = obj.joint_controls{i};
+                u = u_i(1:2) + u_i(3:4);
+                next_state = obj.physical_dynamics(state_grid, u);
+                v_next = v_grid.GetDataAtReal(next_state);
+                q_data = r_fun(num2str(u_i)) + (gamma .* v_next);
+                q_i = Grid(g_min, g_max, g_nums);
+                q_i.SetData(q_data);
+                q_fun(num2str(u_i)) = q_i;
+                sum_exp = sum_exp + exp(q_i.data);
+            end
+            
+            % Make invalid states have Q-value of zero. States are invalid
+            % if \sum e^Q(x,u') == 0 (i.e no states give a non-zero action)
+%             isInvalid = (maxQ <= -obj.nearInf);
+            isInvalid = (sum_exp == 0);
+            for i=1:obj.num_joint_ctrls
+                u_i = obj.joint_controls{i};
+                u = u_i(1:2) + u_i(3:4);
+                next_state = obj.physical_dynamics(state_grid, u);
+                q_i = q_fun(num2str(u_i)).data;
+                q_i(isInvalid) = 0;
+                q = Grid(g_min, g_max, g_nums);
                 
                 % -inf if moving outside grid or into obstacle
                 penalty_outside_mask = (next_state{1} < g_min(1)) | ....
@@ -271,7 +437,7 @@ classdef MDPHumanRobotBelief < handle
                 if obj.has_obs
                     penalty_obstacle_mask = obj.reward_info.obstacles.GetDataAtReal(next_state);
                     penalty_obstacle = (penalty_obstacle_mask==0) .* 0.0 + ...
-                                    (penalty_obstacle_mask==1) .* -obj.nearInf; 
+                                    (penalty_obstacle_mask==1) .* -obj.nearInf;
                 else
                     % if no obstacles, then no penalty for obstacle anywhere. 
                     penalty_obstacle = zeros(size(state_grid{1}));
@@ -284,7 +450,7 @@ classdef MDPHumanRobotBelief < handle
         
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy(obj, theta_idx)
-            q_fun = obj.q_fun;
+            q_fun = obj.q_funs{theta_idx};
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -300,6 +466,22 @@ classdef MDPHumanRobotBelief < handle
             xlabel('x');
             ylabel('y');
             colorbar
+            
+            % plot obstacle.
+            if obj.has_obs
+                for oi = 1:length(obj.reward_info.obstacles)
+                    obs_info = obj.reward_info.obstacles{oi};
+                    obs_min = obs_info(1:2);
+                        
+                    x_min = obs_min(1);
+                    y_min = obs_min(2);
+                    p_min = 1;
+                    l = [obs_info(3), ...
+                        obs_info(4), ...
+                        9];
+                    plotcube(l,[x_min y_min p_min], .5, [1 1 1]);
+                end
+            end
             
             view(0,90);
             title(strcat("Optimal policy for theta=", num2str(theta_idx),". Color at state => opt control"));
@@ -348,9 +530,69 @@ classdef MDPHumanRobotBelief < handle
             ylim([-4,4]);
         end
         
+        %% Returns the optimal trajectory from current state to goal. 
+        function [opt_traj, opt_ctrl_idxs] = get_opt_policy_from_x0(obj, xinit, theta_idx)
+            q_fun = obj.q_funs{theta_idx};
+            all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
+            for i=1:obj.num_ctrls
+                u_i = obj.controls{i};
+                q_i = q_fun(num2str(u_i)).data;
+                all_q_vals(:,:,i) = q_i;
+            end
+            [opt_vals, opt_u_idxs] = max(all_q_vals, [], 3);
+            
+            uopts = Grid(obj.reward_info.g.min, ...
+                        obj.reward_info.g.max, ...
+                        obj.reward_info.g.N);
+            uopts.SetData(opt_u_idxs);
+            xcurr = xinit;
+            opt_traj = [[xcurr{1};xcurr{2}]];
+            opt_ctrl_idxs = [];
+            
+            % Loop until the curr state is close enough to goal. 
+            goal_rad = obj.gdisc(1);
+            goal = obj.reward_info.thetas{theta_idx};
+            d_to_goal = sqrt((xcurr{1} - goal{1})^2 + (xcurr{2} - goal{2})^2);
+            while d_to_goal > goal_rad
+                % get optimal control at this state
+                uopt_idx = uopts.GetDataAtReal(xcurr);
+                xcurr = obj.physical_dynamics(xcurr, obj.controls{uopt_idx});
+                opt_ctrl_idxs(end+1) = uopt_idx;
+                opt_traj(:,end+1) = [xcurr{1};xcurr{2}];
+                d_to_goal = sqrt((xcurr{1} - goal{1})^2 + (xcurr{2} - goal{2})^2);
+            end 
+        end
+        
+        %% Get earliest time where optimal policy reaches target confidence.
+        function [tte_idx, bfinal, belief_traj] = get_opt_policy_earliest_tte_conf(obj, ...
+                opt_traj, opt_ctrl_idxs, prior, trueThetaIdx)
+            tte_idx = -1;
+            belief = prior;
+            num_states = length(opt_traj);
+            target_belief = 0.9;
+            if trueThetaIdx == 2
+                target_belief = 0.1; 
+            end
+            belief_traj = [];
+            belief_traj(end+1) = prior;
+            for i=1:num_states
+                z = {opt_traj(1,i), opt_traj(2,i), belief};
+                uidx = opt_ctrl_idxs(i);
+                u = obj.controls{uidx};
+                belief = obj.belief_update(u,z);
+                belief_traj(end+1) = belief;
+                if (trueThetaIdx == 1 && belief >= target_belief) || ...
+                    (trueThetaIdx == 2 && belief <= target_belief)
+                    tte_idx = i+1;
+                    bfinal = belief;
+                    break;
+                end
+            end
+        end
+        
         %% Plots optimal policy for the inputted theta. 
         function plot_opt_policy_from_x0(obj, xinit, theta_idx)
-            q_fun = obj.q_fun;
+            q_fun = obj.q_funs{theta_idx};
             all_q_vals = zeros([obj.reward_info.g.N', numel(obj.controls)]);
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};
@@ -397,26 +639,43 @@ classdef MDPHumanRobotBelief < handle
             g2Color = [38., 138., 240.]/255.;
     
             % g1
-            scatter(obj.reward_info.theta{1}, ...
-                obj.reward_info.theta{2}, ...
+            scatter(obj.reward_info.thetas{1}{1}, ...
+                obj.reward_info.thetas{1}{2}, ...
                 'linewidth', 2, ...
                 'marker', 'o', ...
                 'markeredgecolor', g1Color, ...
                 'markerfacecolor', g1Color);
             g1Txt = 'g1';
-            t1 = text(obj.reward_info.theta{1}-0.05, ...
-                        obj.reward_info.theta{2}-0.3, ...
+            t1 = text(obj.reward_info.thetas{1}{1}-0.05, ...
+                        obj.reward_info.thetas{1}{2}-0.3, ...
                         0.55, g1Txt);
             t1.FontSize = 11;
             t1.Color = g1Color;
             
+            % g2
+            scatter(obj.reward_info.thetas{2}{1}, ...
+                obj.reward_info.thetas{2}{2}, ...
+                'linewidth', 2, ...
+                'marker', 'o', ...
+                'markeredgecolor', g2Color, ...
+                'markerfacecolor', g2Color);
+            g2Txt = 'g2';
+            t2 = text(obj.reward_info.thetas{2}{1}-0.2, ...
+                        obj.reward_info.thetas{2}{2}-0.3, ...
+                        0.55, g2Txt);
+            t2.FontSize = 11;
+            t2.Color = g2Color;
+            
             % plot obstacle.
-            bandw_cmap = [0,0,0;1,1,1]; %[1,1,1;0,0,0];
-            colormap(bandw_cmap)
-            ph = pcolor(obj.reward_info.obstacles.g{1}, ...
-                        obj.reward_info.obstacles.g{2}, ...
-                        obj.reward_info.obstacles.data);
-            set(ph, 'EdgeColor', 'none');
+            if obj.has_obs
+                % plot obstacle.
+                bandw_cmap = [1,1,1;0,0,0];
+                colormap(bandw_cmap)
+                ph = pcolor(obj.reward_info.obstacles.g{1}, ...
+                            obj.reward_info.obstacles.g{2}, ...
+                            obj.reward_info.obstacles.data);
+                set(ph, 'EdgeColor', 'none');
+            end
             set(gcf,'color','w');
             xlim([obj.reward_info.g.min(1), obj.reward_info.g.max(1)]);
             ylim([obj.reward_info.g.min(2), obj.reward_info.g.max(2)]);
@@ -428,4 +687,3 @@ classdef MDPHumanRobotBelief < handle
         end
     end
 end
-
