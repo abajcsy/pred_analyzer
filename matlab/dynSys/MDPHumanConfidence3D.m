@@ -84,7 +84,7 @@ classdef MDPHumanConfidence3D < handle
         function znext = physical_dynamics(obj,z,u)
             % Return next state after applying control u to z. 
             % Note that no interpolation is done (should be handled by Grid class).
-            znext = cell(2);
+            znext = cell(1,2);
             znext{1} = z{1} + u(1);
             znext{2} = z{2} + u(2);
         end
@@ -131,6 +131,46 @@ classdef MDPHumanConfidence3D < handle
                 denominator = denominator + exp(beta * q_val.GetDataAtReal(z));
             end
             pu = numerator ./ denominator;
+        end
+        
+        function us = name_to_control(obj, names)
+            us = cell(size(names));
+            gdisc = obj.gdisc;
+            for i=1:numel(us)
+                name = names{i};
+                u = [0,0];
+                if name == "U"
+                    u = [0,gdisc(2)];
+                elseif name == "L"
+                    u = [-1*gdisc(1),0];
+                elseif name == "D"
+                    u = [0,-1*gdisc(2)];
+                elseif name == "R"
+                    u = [gdisc(1),0];
+                elseif name == "LD"
+                    u = [-1*gdisc(1),-1*gdisc(2)];
+                elseif name == "LU"
+                    u = [-1*gdisc(1),gdisc(2)];
+                elseif name == "RD"
+                    u = [gdisc(1),-1*gdisc(2)];
+                elseif name == "RU"
+                    u = [gdisc(1),gdisc(2)];
+                elseif name == "S"
+                    u = [0,0];
+                end
+                us{i} = u;
+            end
+        end
+        
+        function traj = sim_traj(obj, state, us)
+            us = obj.name_to_control(us);
+            traj = zeros(2, numel(us)+1);
+            traj(:,1) = cell2mat(state).';
+            for i=1:numel(us)
+                u = us{i};
+                state = obj.physical_dynamics(state, u);
+                traj(:,i+1) = cell2mat(state).';
+            end
         end
         
         %% Generates the discrete controls for the MDP human. 

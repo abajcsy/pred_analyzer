@@ -1,6 +1,6 @@
 %% File to compute reachable sets and optimal control via discrete-time HJ
 clear all
-cl
+clf
 close all
 
 %% Load all the parameters for this computation!
@@ -17,7 +17,9 @@ close all
 
 % params = exp1_legibility();
 % params = exp2_confidence();
-params = exp4_gradient();
+% params = exp4_gradient();
+
+params = mdpHumanRobotEnv();
 
 % === Setups where joint state includes direct parameter vals. === %
 % params = mdpHumanSGD3DSimpleEnv();
@@ -111,20 +113,20 @@ pt.Color = 'k';
 pt.MarkerFaceColor = 'b';
 pt.MarkerEdgeColor = 'b';
 hold on
-if ~isa(params.reward_info.obstacles, 'Grid')
-    for oi = 1:length(params.reward_info.obstacles)
-        obs_info = params.reward_info.obstacles{oi};
-        obs_min = obs_info(1:2);
-
-        x_min = obs_min(1);
-        y_min = obs_min(2);
-        p_min = 0;
-        l = [obs_info(3), ...
-            obs_info(4), ...
-            1];
-        plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
-    end
-end
+% if ~isa(params.reward_info.obstacles, 'Grid')
+%     for oi = 1:length(params.reward_info.obstacles)
+%         obs_info = params.reward_info.obstacles{oi};
+%         obs_min = obs_info(1:2);
+% 
+%         x_min = obs_min(1);
+%         y_min = obs_min(2);
+%         p_min = 0;
+%         l = [obs_info(3), ...
+%             obs_info(4), ...
+%             1];
+%         plotcube(l,[x_min y_min p_min], .5, [0.3 0.3 0.3]);
+%     end
+% end
 xlim([params.gmin(1),params.gmax(1)])
 ylim([params.gmin(2),params.gmax(2)])
 box on
@@ -149,9 +151,9 @@ if params.plot
     traj_tau_real = (traj_tau - ones(size(traj_tau)))*params.dt;
     
     % Plot the optimal traj
-    if isfield(params,"theta")
+    if isfield(params,"goal")
         plotOptTraj(traj, traj_tau_real, ...
-                    {params.theta}, 1, ...
+                    {params.goal}, 1, ...
                     params.gmin, params.gmax, params.gnums, ...
                     goalSetRad, extraPltArgs);
     else 

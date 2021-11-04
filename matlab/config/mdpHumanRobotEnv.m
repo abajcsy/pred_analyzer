@@ -3,20 +3,20 @@ function params = mdpHumanRobotEnv()
 %% Grid setup
 params.gmin = [-4.5, -4.5, 0];
 params.gmax = [4.5, 4.5, 1];
-params.gnums = [21, 21, 21];
+params.gnums = [11, 11, 11];
 params.g = createGrid(params.gmin, params.gmax, params.gnums);
 params.extraArgs.g = params.g;
 params.bdims = {3}; % dimension(s) which contain the belief
 
 %% Joint Dynamics Setup.
-params.thetas = {[0.5, 0.5], [0, 1]};
+params.thetas = {[0.5, 0.5], [0, 1]}; % {[1, 0], [0, 1]};
 params.trueThetaIdx = 1;
 
 %% Target Set Setup
 
 % Rectangular prism centered at true b(g)
-tol = 1-0.85;
-centerPgoal1 = (1-0.85)/2 + 0.85;
+tol = 1-0.9;
+centerPgoal1 = 0.95; %(1-0.9)/2 + 0.9;
 xyoffset = -0.1;
 center = [0; 0; centerPgoal1];
 widths = [(params.gmax(1) - params.gmin(1)) + xyoffset; ...
@@ -31,7 +31,7 @@ params.initial_value_fun = shapeRectangleByCenter(params.g, center, widths);
 
 %% Time vector
 t0 = 1;
-num_timesteps = 10;
+num_timesteps = 50;
 params.tau = t0:1:num_timesteps;  % timestep in discrete time is always 1
 
 %% Problem Setup
@@ -46,7 +46,9 @@ params.plot = true;        % Visualize the BRS and the optimal trajectory?
 g_phys = createGrid(params.gmin(1:2)', ...
                     params.gmax(1:2)', ...
                     params.gnums(1:2)');
-params.reward_info.g = g_phys; 
+params.reward_info.g = g_phys;
+
+% params.reward_info.g_comp = params.g;
 
 % Obstacles used in Q-function computation.
 % Axis-aligned rectangular obstacle convention is:
@@ -54,9 +56,11 @@ params.reward_info.g = g_phys;
 % params.reward_info.obstacles = {[-1.5, 0.5, 1, 1],...
 %                                 [-1.5, -2, 1, 2]};
 
-params.reward_info.goal = [0,4];
+goal = [0,3.6];
+params.goal = goal;
+params.reward_info.goal = goal;
 params.reward_info.k = 1;
-params.reward_info.lambda = 1;
+params.reward_info.lambda = 0; % 1
 
 % Setup theta info (convert to cell of cells).                      
 params.reward_info.thetas = cell(1,numel(params.thetas));
@@ -66,7 +70,7 @@ end
 
 %% Create the Human Dynamical System.
 % Initial state and dynamical system setup
-params.initial_state = {0,-4,0.5};
+params.initial_state = {0,-3.6,0.5};
 
 % Params for Value Iteration. 
 params.gamma = 0.98; 
@@ -76,7 +80,7 @@ params.eps = 0.01;
 %   beta = 0 --> uniform dist, 
 %   beta = 1 --> default 
 %   beta = inf --> dirac delta on opt action)
-params.beta = 1;
+params.beta = 0.01;
 
 % MDP human.
 gdisc3D = (params.gmax - params.gmin) ./ (params.gnums - 1);

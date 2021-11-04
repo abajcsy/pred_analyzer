@@ -42,18 +42,32 @@ real_times = discrete_times*dt;
 %% Initial state and goal of human (in m)!
 x0 = [2, 0];                    % initial position of human (in m)
 goal = [-3.5, 0];
-beta_prior = [0.1,0.9];
+beta_prior = [0.5,0.5];
 
 %% Create CONF-AWARE predictor.
 fprintf('Predicting with CONFIDENCE-AWARE PREDICTOR...\n');
-conf_predictor = ConfAwarePredictor(pred_g, goal, betas);
+% grid, goal, betas, reward_info, gamma, eps
+params_cross = exp2_crosswalk();
+reward_info.g = params_cross.g2d;
+
+obs = Grid(params_cross.gmin, params_cross.gmax, params_cross.gnums);
+obs.SetData(params_cross.bin_obs_map);
+reward_info.obstacles = obs;
+
+% Setup theta info (convert to cell of cells).  
+
+reward_info.theta = {params_cross.goal(1), params_cross.goal(2)};
+gamma = 0.99;
+eps = 0.000001;
+
+conf_predictor = ConfAwarePredictor(pred_g, goal, betas, reward_info, gamma, eps);
 % Predict!
 preds = conf_predictor.predict(x0, T, beta_prior);
 % Plot preds!
 figure(1)
 conf_predictor.plot_preds(preds);
 
-save('conf_preds_1090.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
+save('crosswalk_preds_5050.mat', 'preds', 'discrete_times', 'real_times', 'x0', 'pred_g');
 
 % %% Create OPT predictor.
 % fprintf('Predicting with OPT PREDICTOR...\n');
