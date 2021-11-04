@@ -44,6 +44,9 @@ function [value_funs, tau, extraOuts] = ...
 %      .stoptau: time at which the reachable set contains the initial
 %                state; tau and data vectors only contain the data till
 %                stoptau time.
+%      .precomp_ctrls_t: (float) time to precompute likely controls
+%      .precomp_dyns_t: (float) time to precompute dynamics
+%      .dp_comp_t: (float) time to do all the DP backups
 
 % extract grid and dynamical system.
 g = schemeData.grid;
@@ -95,16 +98,25 @@ tidx = num_timesteps - 1;
 
 % Precompute likely masks over entire state space.
 fprintf("Pre-computing all likely controls over state space...\n");
+% store time.
+ctrls_start = tic; 
 likelyMasks = dyn_sys.getLikelyMasks(g.xs);
+% Store time info!
+extraOuts.precomp_ctrls_t = toc(ctrls_start); 
+fprintf(' ------>  comp time (s): %f\n', extraOuts.precomp_ctrls_t);
 
 % Precomputing all the next states.
 fprintf("Pre-computing dynamics over state space...\n");
+dyn_start = tic;
 next_state_cache = containers.Map;
 for ui=1:num_ctrls
     u = controls{ui};
     next_state = dyn_sys.dynamics(g.xs, u);
     next_state_cache(num2str(u)) = next_state;
 end
+% Store time info!
+extraOuts.precomp_dyns_t = toc(dyn_start); 
+fprintf(' ------>  comp time (s): %f\n', extraOuts.precomp_dyns_t);
 
 % (Benchmarking) Timer for the overall computation.
 overallStart = tic;
@@ -115,18 +127,17 @@ while tidx > 0
     singleCompStart = tic;
 
     % Create grid and set data to value function at t+1
-    %compute_grid = Grid(g.min, g.max, g.N);
-    %compute_grid.SetData(value_funs{tidx + 1});
+    compute_grid = Grid(g.min, g.max, g.N);
+    compute_grid.SetData(value_funs{tidx + 1});
     
     % Grab the value function at the next timestep. 
     next_value_fun = value_funs{tidx + 1};
-    
-%     if isfield(extraArgs, 'stopInit')
-%         initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
-%         initial_idx = initial_idx{1};
-%         fprintf('Value of initial state at t=-%f: %f ...\n', tidx+1, ...
-%            value_funs{tidx + 1}(initial_idx));
-%     end
+    if isfield(extraArgs, 'stopInit')
+        initial_idx = compute_grid.RealToIdx(extraArgs.stopInit);
+        initial_idx = initial_idx{1};
+        fprintf('Value of initial state at t=-%f: %f ...\n', tidx+1, ...
+           value_funs{tidx + 1}(initial_idx));
+    end
     
     fprintf("Computing value function for iteration t=%f...\n", tidx);
     
@@ -219,6 +230,6 @@ extraOuts.all_opt_ctrl_idxs = all_opt_ctrl_idxs;
 %     'thetas', 'dyn_sys', 'uThresh', 'trueThetaIdx', 'num_timesteps', 'uMode');
 
 % End timing the overall computation;
-toc(overallStart);
+extraOuts.dp_comp_t = toc(overallStart);
     
 end

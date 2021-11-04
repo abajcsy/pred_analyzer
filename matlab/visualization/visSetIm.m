@@ -123,6 +123,8 @@ end
 
 if isfield(extraArgs, 'alpha')
   alpha = extraArgs.alpha;
+else
+  alpha = 1;
 end
 
 switch g.dim

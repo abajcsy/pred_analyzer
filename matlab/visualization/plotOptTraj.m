@@ -30,13 +30,14 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
             ph = pcolor(extraPltArgs.obstacles.g{1}, ...
                     extraPltArgs.obstacles.g{2}, ...
                     extraPltArgs.obstacles.data);
-            set(ph, 'EdgeColor', 'none');
+            %set(ph, 'FaceColor', 'w');
+            set(ph, 'EdgeColor', [0.6,0.6,0.6]);
 
 %             colormap(flipud('gray'))
 %             contourf(extraPltArgs.obstacles.g{1}, ...
 %                     extraPltArgs.obstacles.g{2}, ...
 %                     plt_obs, [0.8,1]);
-
+%             bla = 1;
         end
     end
     
@@ -177,11 +178,13 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     
     %grid on;
     
-    if grid_min(1) > -3 && grid_max(1) < 3
-        xticks([grid_min(1), -1, 0, 1, grid_max(1)]);
-    else
-        xticks([grid_min(1), -3, -2, -1, 0, 1, 2, 3, grid_max(1)]);
-    end
+%     if grid_min(1) > -3 && grid_max(1) < 3
+%         xticks([grid_min(1), -1, 0, 1, grid_max(1)]);
+%     else
+%         xticks([grid_min(1), -3, -2, -1, 0, 1, 2, 3, grid_max(1)]);
+%     end
+    xticks([grid_min(1):1:grid_max(1)]);
+    yticks([grid_min(2):1:grid_max(2)]);
     
     xlim([grid_min(1), grid_max(1)]);
     ylim([grid_min(2), grid_max(2)]);
@@ -191,8 +194,10 @@ function plotOptTraj(traj, traj_tau, goals, trueGoalIdx, ...
     xlabel('x');
     ylabel('y');
     zlabel('P(g = g1)');
-    set(gcf,'Position',[100 100 500 500]);
-    set(gcf,'color','w');
+    set(gcf,'Color','w');
+    set(gca,'Color',[1,1,1]);
+    set(gcf,'Position',[100 100 700 700]);
+    grid on
     
 %     set(gca,'xtick',linspace(grid_min(1),grid_max(1),grid_nums(1)));
 %     set(gca,'ytick',linspace(grid_min(2),grid_max(2),grid_nums(2)));

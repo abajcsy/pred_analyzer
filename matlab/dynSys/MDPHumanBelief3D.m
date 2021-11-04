@@ -16,6 +16,8 @@ classdef MDPHumanBelief3D < handle
         gdisc           % (arr) discretization resolution in x,y,b(th=1)
         b_range         % (arr) range of belief values to clip to.
         
+        precomp_q_t     % (float) time to precompute q-values
+        
         % Note: Is it safe to assume b scalar or can we have len(theta)>2
         % (which would mean to have b of dimension len(theta)-1)?
     end
@@ -62,6 +64,7 @@ classdef MDPHumanBelief3D < handle
                 obj.has_obs = true;
             end
             
+            qstart = tic;
             % Pre-compute the Q-functions for each theta.
             for th_idx=1:numel(reward_info.thetas)
                 fprintf('Pre-computing Q-function for theta = %d / %d\n', ...
@@ -73,6 +76,10 @@ classdef MDPHumanBelief3D < handle
                 et = toc(st);
                 fprintf('   compute time: %f s\n', et);
             end
+            % store time.
+            obj.precomp_q_t = toc(qstart); 
+            fprintf(' ------>  comp time (s): %f\n', obj.precomp_q_t);
+            
         end
         
         %% Joint dynamics zdot = [xdot, bdot].
@@ -494,12 +501,12 @@ classdef MDPHumanBelief3D < handle
                     'r', 'filled');
             
             % plot obstacles.
-            if obj.has_obs
-                for oi = 1:length(obj.reward_info.obstacles)
-                    obs_info = obj.reward_info.obstacles{oi};
-                    rectangle('Position',obs_info)
-                end
-            end
+%             if obj.has_obs
+%                 for oi = 1:length(obj.reward_info.obstacles)
+%                     obs_info = obj.reward_info.obstacles{oi};
+%                     rectangle('Position',obs_info)
+%                 end
+%             end
             
             % plot init cond.
             scatter(init_z{1}, init_z{2}, 'b', 'filled');
