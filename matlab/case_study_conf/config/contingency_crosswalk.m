@@ -1,4 +1,4 @@
-function params = exp2_crosswalk()
+function params = contingency_crosswalk()
 
 %% Grid representation.
 params.gmin = [-6,-6]; % should take into accound theta too?
@@ -39,18 +39,17 @@ num_cells_augment = round(footprint_rad/gdisc(1)); % convert meters to cells for
 %% Signed dist functions.
 pts = [params.g2d.xs{1}(:), params.g2d.xs{2}(:)];
 repo = what('pred_analyzer');
-data_path = strcat(repo.path, '/matlab/data/');
-map_name = 'cluttered_map_doorway.png'; %'emptier_map.png'; 
-% obs_data_2d = imread(strcat(data_path, map_name));
 obs_data_2d = make_obs();
 % black (0,0,0) == obstacles in image and 
 % white >(0,0,0) == free-space in image 
 binary_obs_map = (obs_data_2d == 0) .* 1 + (obs_data_2d > 0) .* 0;
 params.bin_obs_map = binary_obs_map;
 % zeros == free-space and ones == obstacles.
+
 % Augment obstacle size by footprint of robot.
 SE = strel('square', 5); % TODO: This always augments by 1 cell (because PR2 base maps to this). 
 augmented_obs_map = imdilate(binary_obs_map, SE);
+
 % Create costmap from augmented map. 
 params.obs_map_full = (augmented_obs_map == 1) .* -100.0 + (obs_data_2d == 0) .* 0.0;
 params.gimg = createGrid(params.gmin, params.gmax, size(params.obs_map_full));

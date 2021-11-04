@@ -2,13 +2,13 @@ clear all
 close all
 
 %% Load up all the info for robot.
-robot_params = exp2_crosswalk();
+robot_params = contingency_crosswalk();
 % load('exp_2_opt_human_traj_1090.mat');
 
 %% Load up all the info for the human predictors.
 % Setup what kind of predictors we have
-opt_human_params = exp2_opt_pred_crosswalk();
-frs_human_params = exp2_frs_pred_crosswalk();
+opt_human_params = opt_pred_crosswalk();
+frs_human_params = frs_pred_crosswalk();
 
 human = opt_human_params.dyn_sys;
 human_control = {"U", "D", "U"};

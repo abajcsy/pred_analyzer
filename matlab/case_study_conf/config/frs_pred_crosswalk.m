@@ -1,4 +1,4 @@
-function params = exp2_frs_pred_crosswalk()
+function params = frs_pred_crosswalk()
 params.gmin = [-6,-6];
 params.gmax = [6,6];
 params.gnums = [45, 45];
