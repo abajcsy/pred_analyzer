@@ -1,14 +1,13 @@
 clear all
 close all
 
-load('contingency_full_sim.mat')
-% load('contingency_example_v8.mat');
+load('conf_full_sim.mat')
 
 %% Video creation!
-save_video = false;
+save_video = true;
 if save_video 
     curr_date = datestr(now,'mm_dd_yyyy_HH_MM');
-    filename = strcat('exp2_crosswalk_',curr_date,'.mp4');
+    filename = strcat('crosswalk_conf',curr_date,'.mp4');
     vout = VideoWriter(filename,'MPEG-4');
     vout.Quality = 100;
     vout.FrameRate = 5;
@@ -42,9 +41,9 @@ qrg.Marker = 'o';
 qrg.MarkerFaceColor = 'b';
 
 % plot human goal.
-scatter(opt_human_params.goal(1), opt_human_params.goal(2), 'r');
-xlim([opt_human_params.gmin(1), opt_human_params.gmax(1)])
-ylim([opt_human_params.gmin(2), opt_human_params.gmax(2)])
+scatter(human_params.goal(1), human_params.goal(2), 'r');
+xlim([human_params.gmin(1), human_params.gmax(1)])
+ylim([human_params.gmin(2), human_params.gmax(2)])
 set(gcf, 'color', 'w')
 set(gcf, 'position', [0,0,600,600])
 
@@ -60,8 +59,6 @@ tb2 = [];
 all_contour_h = [];
 rrecth = [];
 rps_h = [];
-rpopt_h = [];
-rpfrs_h = [];
 rrecth = [];
 
 %% RUN SIM.
@@ -70,8 +67,7 @@ for t=1:simT
     h_xcurr = zt(1:2)'; %all_h_states{t};
     r_xcurr = all_r_states{t};
     robot_plan = all_plans{t};
-    opt_human_preds = all_opt_preds{t};
-    frs_human_preds = all_frs_preds{t};
+    human_preds = all_preds{t};
     pbeta = all_beliefs{t};
     
     hsh.CData = gray_c;
@@ -84,13 +80,63 @@ for t=1:simT
     if ~isempty(rps_h)
         rps_h.CData = gray_c;
         rps_h.MarkerEdgeColor = gray_c;
-        rpopt_h.CData = gray_c;
-        rpopt_h.MarkerEdgeColor = gray_c;
-        rpfrs_h.CData = gray_c;
-        rpfrs_h.MarkerEdgeColor = gray_c;
     end
     
+    
+    %% Plot the predictions.
+    if ~isempty(all_contour_h)
+        for i=1:length(all_contour_h)
+            delete(all_contour_h(i))
+        end
+    end
+    flat_preds = cell2mat(human_preds);
+    likely_flat_preds = flat_preds(flat_preds > 0.05);
+    min_prob = min(likely_flat_preds(:));
+    max_prob = max(likely_flat_preds(:));
+    offset = 0.3429/2.;
+    for i=length(human_preds):-1:1
+        levels = [-0.1,0.1];
+        preds = human_preds{i};
+        threshold = 0.05;
+        eps = robot_params.planner.compute_likely_states(human_preds{i}, threshold);
+        locs = find(human_preds{i} >= eps);
+        Xs = human_params.pred_g.xs{1}(locs); 
+        Ys = human_params.pred_g.xs{2}(locs); 
+        if eps == 0.0
+            preds = (human_preds{i} > eps) .* 1.0 + (human_preds{i} <= eps) .* 0.0;
+            locs = find(human_preds{i} > eps);
+            Xs = human_params.pred_g.xs{1}(locs); 
+            Ys = human_params.pred_g.xs{2}(locs); 
+        end
+        
+        alpha = (preds(locs) - min_prob)/(max_prob - min_prob);
+        colorID = zeros(length(locs),3);    
+        colorID(:,1) = alpha*1 + (1-alpha)*0.35;
+        colorID(:,2) = alpha*0 + (1-alpha)*0.9; 
+        colorID(:,3) = alpha*0.46 + (1-alpha)*1; 
+        
+        h = scatter(Xs(:), Ys(:), 170, colorID, 'filled', 'marker', 's');
+ 
+        all_contour_h = [all_contour_h, h];
+    end
+
     %% Plot robot plan
+    % Plot robot shared plan, and contingency plans.
+    rps_h = scatter(robot_plan{1}, robot_plan{2}, 'markeredgecolor', 'b');
+
+    % Update human state.
+    %h_ctrl = pi/4;
+    zt = traj(:,t+1);
+    h_xnext = zt(1:2)';
+    
+    % Update robot state.
+    ntsteps = floor(human_params.dt/robot_params.dt);
+    r_xnext = all_r_states{t+1}; %[robot_plan{1}(r_tstep), robot_plan{2}(r_tstep), ...
+              %              robot_plan{5}(r_tstep), robot_plan{3}(r_tstep)];
+    
+    %% Plot human and robot state.
+    hsh = scatter(h_xcurr(1), h_xcurr(2), 'r', 'filled');
+    
     % plot robot state body. 
     pos = [r_xcurr(1)-footprint_rad, ...
            r_xcurr(2)-footprint_rad, ...
@@ -105,25 +151,6 @@ for t=1:simT
                 cos(r_xcurr(3)), sin(r_xcurr(3)), 'b');
     rsh.Marker = 'o';
     rsh.MarkerFaceColor = 'b';
-    
-    % Plot robot shared plan, and contingency plans.
-    rps_h = scatter(shared_plan{1}, shared_plan{2}, 'markeredgecolor', 'k');
-    rpopt_h = scatter(opt_plan{1}, opt_plan{2}, 'markeredgecolor', 'r', 'markerfacecolor', 'r');
-    rpfrs_h = scatter(frs_plan{1}, frs_plan{2}, 'markeredgecolor', 'c');
-
-    % Update human state.
-    %h_ctrl = pi/4;
-    zt = traj(:,t+1);
-    h_xnext = zt(1:2)';%[h_xcurr(1) + opt_human_params.dt * cos(h_ctrl), ...
-              % h_xcurr(2) + opt_human_params.dt * sin(h_ctrl)];
-    
-    % Update robot state.
-    ntsteps = floor(opt_human_params.dt/robot_params.dt);
-    r_xnext = all_r_states{t+1}; %[robot_plan{1}(r_tstep), robot_plan{2}(r_tstep), ...
-              %              robot_plan{5}(r_tstep), robot_plan{3}(r_tstep)];
-    
-    %% Plot human state.
-    hsh = scatter(h_xcurr(1), h_xcurr(2), 'r', 'filled');
     
     %tatreplan = scatter(robot_plan{1}(ntsteps), robot_plan{2}(ntsteps), 'r', 'filled');
     

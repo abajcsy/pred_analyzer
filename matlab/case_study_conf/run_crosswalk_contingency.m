@@ -2,7 +2,7 @@ clear all
 close all
 
 %% Load up all the info for robot.
-robot_params = contingency_crosswalk();
+robot_params = contingency_robot_crosswalk();
 % load('exp_2_opt_human_traj_1090.mat');
 
 %% Load up all the info for the human predictors.
@@ -10,14 +10,15 @@ robot_params = contingency_crosswalk();
 opt_human_params = opt_pred_crosswalk();
 frs_human_params = frs_pred_crosswalk();
 
-human = opt_human_params.dyn_sys;
-human_control = {"U", "D", "U"};
-traj = human.sim_traj({-1,-5}, human_control);
 %% Setup human start state. 
-h_start = [-1, -5]; 
+h_start = [1, 2]; 
+
+human = opt_human_params.dyn_sys;
+human_control = {"U", "U", "U", "U"};
+traj = human.sim_traj({h_start(1),h_start(2)}, human_control);
 
 %% Setup robot start state. 
-r_start = [5, 2, pi, 0.5]; %[2.0, 3, -pi/4, 0.5]; %[2.0, 2.8, -pi/4, 0.5]; 
+r_start = [3.5, 2, pi, 3]; % max robot speed is 6mph
 
 %% Setup start state.
 h_xcurr = h_start;
@@ -151,4 +152,7 @@ all_beliefs{end+1} = pbeta;
 all_dists{end+1} = min_d_to_h;
     
 fprintf('Min dist between robot and human: %f\n', min_d_to_h);
-save('contingency_example_v8.mat');
+load('conf_preds.mat');
+repo = what('pred_analyzer');
+data_path = strcat(repo.path, '/matlab/case_study_conf/');
+save(strcat(data_path,'contingency_full_sim.mat'));

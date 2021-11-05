@@ -10,14 +10,13 @@ params.vel = 0.6;
 params.dt = params.gdisc(1)/params.vel;
 
 %% Prediction time info.
-params.pred_hor = 8;                   % prediction horizon (in sec)
+params.pred_hor = 4;                   % prediction horizon (in sec)
 params.T = floor(params.pred_hor/params.dt);         % number of tsteps to predict for
 params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.x0 = [1, -4];                    % initial position of human (in m)
-params.goal = [1, 5];
+params.goal = [1, 6];
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
 params.binaryg2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));

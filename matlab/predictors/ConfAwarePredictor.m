@@ -18,6 +18,8 @@ classdef ConfAwarePredictor
         pu_mat          % (matrix) nu * nx * nb action probability matrix
         q_fun 
         q_fun_grid
+        
+        dyn_sys
     end
     
     methods
@@ -38,8 +40,8 @@ classdef ConfAwarePredictor
             % THIS IS SUCH A BIG HACK TO SAVE ME IMPLEMENTATION TIME.
             b_range = [0.01, 0.99];
             z0 = {1.069, 0, 0.7762}; % doesn't really matter for our purposes.
-            joint_dyn_sys = MDPHumanConfidence3D(z0, reward_info, 1, 0.0, gdisc, gamma, eps, betas, b_range);
-            obj.q_fun = joint_dyn_sys.q_fun;
+            obj.dyn_sys = MDPHumanConfidence3D(z0, reward_info, 1, 0.0, gdisc, gamma, eps, betas, b_range);
+            obj.q_fun = obj.dyn_sys.q_fun;
             obj.q_fun_grid = reward_info.g;
             
             fprintf('Setting up transition matrix...\n');

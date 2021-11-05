@@ -16,8 +16,7 @@ params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.x0 = [1, -4];                    % initial position of human (in m)
-params.goal = [1, 5];
+params.goal = [3, -5];
 
 %% Create CONF-AWARE predictor.
 fprintf('Setting up FRS PREDICTOR...\n');

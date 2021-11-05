@@ -270,7 +270,7 @@ classdef ConfSplinePlanner < handle
                 % compute the human reward.
                 val = eval_u(obj.pred_g, final_pred, traj(i,:));
                 if val > opt_eps
-                    r = -100.0;
+                    r = -1000.0;
                 end
                 
                 human_r(i) = r;
