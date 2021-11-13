@@ -7,14 +7,16 @@ robot_params = contingency_robot_crosswalk();
 
 %% Load up all the info for the human predictors.
 % Setup what kind of predictors we have
-opt_human_params = opt_pred_crosswalk();
-frs_human_params = frs_pred_crosswalk();
+goal_2d = robot_params.goal(1:2);
+opt_human_params = opt_pred_crosswalk(goal_2d);
+frs_human_params = frs_pred_crosswalk(goal_2d);
 
 %% Setup human start state. 
 h_start = [1, 2]; 
 
 human = opt_human_params.dyn_sys;
-human_control = {"U", "U", "U", "U"};
+% human_control = {"U", "U", "U", "U", "U", "U", "U", "U"};
+human_control = {"D", "D", "D", "D", "D", "D", "D", "D"};
 traj = human.sim_traj({h_start(1),h_start(2)}, human_control);
 
 %% Setup robot start state. 
@@ -35,7 +37,7 @@ h_dt = opt_human_params.dt;
 %% Branch times!
 % ttl for 10-90 prior: 1.818s
 % ttl for 50-50 prior: 0.9091s
-ttl = 0.9091;
+ttl = max(3,2); % 50-50
 branch_t = ttl;
 
 % Compute simulation time based on the time-to-learn number of steps.
@@ -152,7 +154,7 @@ all_beliefs{end+1} = pbeta;
 all_dists{end+1} = min_d_to_h;
     
 fprintf('Min dist between robot and human: %f\n', min_d_to_h);
-load('conf_preds.mat');
+% load('conf_preds.mat');
 repo = what('pred_analyzer');
 data_path = strcat(repo.path, '/matlab/case_study_conf/');
 save(strcat(data_path,'contingency_full_sim.mat'));

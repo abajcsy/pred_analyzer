@@ -41,7 +41,8 @@ params.car_rad = 1.2; %1.9; %2.1; %<-- choose radius = length/2. % 1.2;
 % Axis-aligned rectangular obstacle convention is:
 %       [lower_x, lower_y, width, height]
 params.obstacles = {[2, -7.75, 5.75, 4.1], ...
-                    [2, 3.65, 5.75, 4.1]};
+                    [-6, 3.65, 12, 4.1], ...
+                    [-6, -7.75, 2, 4.1]};
 params.raw_sd_obs = nan(params.g2d.shape);
 
 %% Create obstacle signed distance (zero outside obstacle, negative inside).

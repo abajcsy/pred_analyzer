@@ -1,4 +1,4 @@
-function params = frs_pred_crosswalk()
+function params = frs_pred_crosswalk(goal)
 params.gmin = [-6,-6];
 params.gmax = [6,6];
 params.gnums = [45, 45];
@@ -16,7 +16,7 @@ params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.goal = [3, -5];
+params.goal = goal;
 
 %% Create CONF-AWARE predictor.
 fprintf('Setting up FRS PREDICTOR...\n');

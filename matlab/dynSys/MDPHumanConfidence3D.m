@@ -214,7 +214,9 @@ classdef MDPHumanConfidence3D < handle
 %                     penalty_in_obs_mask = penalty_in_obs_mask | obs_mask;
 %                 end
 %             end
-            penalty_in_obs_mask = obj.reward_info.obstacles.data;
+            if obj.has_obs
+                penalty_in_obs_mask = obj.reward_info.obstacles.data;
+            end
             
             for i=1:obj.num_ctrls
                 u_i = obj.controls{i};

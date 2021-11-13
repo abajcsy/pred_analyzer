@@ -1,4 +1,4 @@
-function params = opt_pred_crosswalk()
+function params = opt_pred_crosswalk(goal)
 params.gmin = [-6,-6];
 params.gmax = [6,6];
 params.gnums = [45, 45];
@@ -16,7 +16,7 @@ params.discrete_times = 0:1:params.T;
 params.real_times = params.discrete_times*params.dt;
 
 %% Initial state and goal of human (in m)!
-params.goal = [1, 6];
+params.goal = goal;
 
 % Obstacles (based on interpolated occupancy grid) used in Q-function computation.
 params.binaryg2d = createGrid(params.gmin(1:2), params.gmax(1:2), params.gnums(1:2));
@@ -41,7 +41,7 @@ params.eps = 0.01;
 % THIS IS SUCH A BIG HACK TO SAVE ME IMPLEMENTATION TIME.
 params.gdisc = (params.gmax-params.gmin) ./ (params.gnums-1);
 b_range = [0.01, 0.99];
-z0 = {1.069, 0, 0.7762}; % doesn't really matter for our purposes.
+z0 = {1, 2, 0.5}; % doesn't really matter for our purposes.
 joint_dyn_sys = MDPHumanConfidence3D(z0, ...
                                     params.reward_info, ...
                                     1, ...
